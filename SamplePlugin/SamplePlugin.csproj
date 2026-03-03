@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/14.0.1">
+  <PropertyGroup>
+    <Version>0.0.0.1</Version>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <Nullable>enable</Nullable>
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageProjectUrl>https://github.com/goatcorp/SamplePlugin</PackageProjectUrl>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <IsPackable>false</IsPackable>
+      <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+      <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+      <LangVersion>preview</LangVersion>
+      <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\Data\goat.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <Content Include="idnotes.txt" />
+    <Content Include="NativeMethods.txt" />
+  </ItemGroup>
+
+    
+  <ItemGroup>
+      <PackageReference Include="Google.Protobuf" Version="3.33.4" />
+      <PackageReference Include="Google.Protobuf.Tools" Version="3.33.4" />
+      <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
+      <PackageReference Include="Grpc.Tools" Version="2.76.0">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.264">
+          <PrivateAssets>all</PrivateAssets>
+      </PackageReference>
+      <PackageReference Include="Unscrambler.XIV" Version="7.40.2" />
+  </ItemGroup>
+    <ItemGroup>
+        <Reference Include="Reloaded.Hooks">
+            <HintPath>$(DalamudLibPath)Reloaded.Hooks.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Reloaded.Hooks.Definitions">
+            <HintPath>$(DalamudLibPath)Reloaded.Hooks.Definitions.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Reloaded.Assembler">
+            <HintPath>$(DalamudLibPath)Reloaded.Assembler.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Reloaded.Memory">
+            <HintPath>$(DalamudLibPath)Reloaded.Memory.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <PackageReference Update="DalamudPackager" Version="14.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Game\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Protobuf Include="combat_events.proto" />
+        <Protobuf Include="loggingway_rpc.proto" GrpcServices="Client" />
+    </ItemGroup>
+</Project>
