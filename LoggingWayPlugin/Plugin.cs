@@ -12,7 +12,6 @@ using LoggingWayPlugin.Windows;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Unscrambler.Constants;
 using static FFXIVClientStructs.ThisAssembly.Git;
 
 namespace LoggingWayPlugin;

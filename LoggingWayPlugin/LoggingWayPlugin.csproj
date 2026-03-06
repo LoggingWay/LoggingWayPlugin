@@ -14,14 +14,6 @@
       <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="..\Data\goat.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
-    </Content>
-    <Content Include="idnotes.txt" />
-    <Content Include="NativeMethods.txt" />
-  </ItemGroup>
 
     
   <ItemGroup>
@@ -35,7 +27,6 @@
       <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.264">
           <PrivateAssets>all</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Unscrambler.XIV" Version="7.40.2" />
   </ItemGroup>
     <ItemGroup>
         <Reference Include="Reloaded.Hooks">
@@ -57,9 +48,7 @@
         <PackageReference Update="DalamudPackager" Version="14.0.1" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Game\" />
-    </ItemGroup>
+
 
     <ItemGroup>
       <Protobuf Include="combat_events.proto" />
