@@ -3,7 +3,7 @@ syntax = "proto3";
 package loggingway_rpc;
 import "combat_events.proto";
 option go_package = "gen/loggingway_rpc";
-option csharp_namespace = "SamplePlugin.Loggingway";
+option csharp_namespace = "LoggingWayPlugin.Loggingway";
 
 
 //rpc

@@ -1,0 +1,26 @@
+[
+  {
+    "Author": "Noevain",
+    "Name": "LoggingWayPlugin",
+    "Punchline": "Log things so you can press buttons better(also showoff)",
+    "Description": "General Logging Plugin,DPS meter and performance analysis plugin",
+    "InternalName": "LoggingWayPlugin",
+    "AssemblyVersion": "0.0.0.1",
+    "TestingAssemblyVersion": "0.0.0.1",
+    "RepoUrl": "https://github.com/LoggingWay/LoggingWayPlugin",
+    "ApplicableVersion": "any",
+    "DalamudApiLevel": 14,
+    "TestingDalamudApiLevel": 14,
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "DownloadCount": 0,
+    "LastUpdate": 0,
+    "LoadPriority": 69420,
+    "LoadRequiredState": 2,
+    "LoadSync": true,
+    "DownloadLinkInstall": "https://github.com/LoggingWay/LoggingWayPlugin/releases/download/0.0.0.1/LoggingWayPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/LoggingWay/LoggingWayPlugin/download/testing_0.0.0.1/LoggingWayPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/LoggingWay/LoggingWayPlugin/download/LoggingWayPlugin/LoggingWayPlugin.zip",
+    "IconUrl": "https://raw.githubusercontent.com/xivdev/Penumbra/master/images/icon.png"
+  }
+]

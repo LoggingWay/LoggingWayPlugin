@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package combat_events;
 
-option csharp_namespace = "SamplePlugin.Proto";
+option csharp_namespace = "LoggingWayPlugin.Proto";
 
 // Main combat event message
 message CombatEvent {
