@@ -1,4 +1,0 @@
-[submodule "machina"]
-	path = machina
-	url = https://github.com/marzent/machina.git
-	branch = dalamud
