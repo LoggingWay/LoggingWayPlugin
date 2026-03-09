@@ -1,12 +1,13 @@
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Common.Lua;
 using LoggingWayPlugin.Events;
+using LoggingWayPlugin.Proto;
 using LoggingWayPlugin.Providers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Timers;
-using static LoggingWayPlugin.Events.CombatEvent;
 
 namespace LoggingWayPlugin.Parsers
 {
@@ -124,31 +125,33 @@ namespace LoggingWayPlugin.Parsers
         {
             EndEncounter();
         }
-        private void HandleNewCombatEvent(CombatEvent combatEvent)
+        private void HandleNewCombatEvent(Proto.CombatEvent combatEvent)
         {
-            switch (combatEvent.Data)
+            switch (combatEvent.EventDataCase)
             {
-                case CombatEventData.EncounterStart:
+                case Proto.CombatEvent.EventDataOneofCase.EncounterStart:
                     StartEncounter();
                     break;
-                case CombatEventData.EncounterEnd:
+                case Proto.CombatEvent.EventDataOneofCase.EncounterEnd:
                     EndEncounter();
                     break;
-                case CombatEventData.StatusEffect statusEffect:
+                case Proto.CombatEvent.EventDataOneofCase.StatusEffect:
                     // Handle status effect event
                     break;
-                case CombatEventData.HoT hot:
+                case Proto.CombatEvent.EventDataOneofCase.Hot:
                     // Handle heal over time event
                     break;
-                case CombatEventData.DoT dot:
+                case Proto.CombatEvent.EventDataOneofCase.Dot:
+                    var dot = combatEvent.Dot;
                     var DoTInfo = damageCounts.GetOrAdd("DoT", _ => new CombattantInfo { Name = "DoT", JobId = 0 });
                     DoTInfo.TotalDamage = DoTInfo.TotalDamage + dot.Amount;
                     damageCounts.AddOrUpdate("DoT", DoTInfo, (_, _) => DoTInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
-                case CombatEventData.DamageTaken damageTaken:
+                case Proto.CombatEvent.EventDataOneofCase.DamageTaken:
                     // General breakdown
-                    if (combatEvent.Source?.Kind != FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind.Pc)
+                    var damageTaken = combatEvent.DamageTaken;//TODO: change all the refs here
+                    if ((FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind)combatEvent.Source?.Objectkind != FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind.Pc)
                         return;
                     var combatantInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo {Name = combatEvent.Source.Name, JobId = 0 });
                     combatantInfo.TotalDamage = combatantInfo.TotalDamage + damageTaken.Amount;
@@ -164,24 +167,28 @@ namespace LoggingWayPlugin.Parsers
                     }
                     combatantInfo.MaxHit = Math.Max(combatantInfo.MaxHit,damageTaken.Amount);
                     //per-action breakdown
-                    var actionInfo = combatantInfo.ActionsBreakdown.GetValueOrDefault(damageTaken.Action) ?? new ActionInfo();
+                    //TODO: refactor the dict to use actionId instead
+                    var actionName = Service.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>()?.GetRow(damageTaken.ActionId).Name.ToString() ?? damageTaken.ActionId.ToString();
+                    var actionInfo = combatantInfo.ActionsBreakdown.GetValueOrDefault(actionName) ?? new ActionInfo();
                     actionInfo.TotalUses = actionInfo.TotalUses + 1;
                     actionInfo.TotalDamage = actionInfo.TotalDamage + damageTaken.Amount;
                     actionInfo.HitCount = actionInfo.HitCount + 1;
                     actionInfo.CritCount = damageTaken.Crit ? actionInfo.CritCount + 1 : actionInfo.CritCount;
                     actionInfo.DirectHitCount = damageTaken.DirectHit ? actionInfo.DirectHitCount + 1 : actionInfo.DirectHitCount;
-                    combatantInfo.ActionsBreakdown[damageTaken.Action] = actionInfo;
+                    combatantInfo.ActionsBreakdown[actionName] = actionInfo;
 
                     damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantInfo, (_, _) => combatantInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
-                case CombatEventData.Healed healed:
+                case Proto.CombatEvent.EventDataOneofCase.Healed:
+                    var healed = combatEvent.Healed;
                     var combatantHealInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo { Name = combatEvent.Source.Name, JobId = 0 });
                     combatantHealInfo.TotalHealing = combatantHealInfo.TotalHealing + healed.Amount;
                     damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantHealInfo,(_, _) => combatantHealInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
-                case CombatEventData.Death death:
+                case Proto.CombatEvent.EventDataOneofCase.Death:
+                    var death = combatEvent.Death;
                     var combatantDeathInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo { Name = combatEvent.Source.Name, JobId = 0 });
                     combatantDeathInfo.Deaths = combatantDeathInfo.Deaths + 1;
                     damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantDeathInfo, (_,_) => combatantDeathInfo);

@@ -44,26 +44,25 @@ namespace LoggingWayPlugin.Parsers
         }
 
 
-        private void HandleNewCombatEvent(Events.CombatEvent combatEvent)
+        private void HandleNewCombatEvent(Proto.CombatEvent combatEvent)
         {
             if (!_config.EnableLoggingwayIntegration)
             {
                 return; 
             }
 
-            if (combatEvent.Data is Events.CombatEventData.EncounterStart)
+            if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterStart)
             {
                 StartEncounter();
             }
-            if (combatEvent.Data is Events.CombatEventData.EncounterEnd)
+            if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterStart)
             {
                 EndEncounter();
             }
             if (encounterActive) //event can come through outside of encounters, which will throw an error either null writer or writing to a disposed stream
             {
-                var proto = combatEvent.ToProto();
-                _codedOutputStream?.WriteMessage(proto);
-                _eventQueue.Enqueue(proto);
+                _codedOutputStream?.WriteMessage(combatEvent);
+                _eventQueue.Enqueue(combatEvent);
                 //BatchAndSubmitEvents(proto);
             }
 

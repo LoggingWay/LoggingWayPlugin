@@ -63,19 +63,19 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
     private void OnTerritoryChange(ushort e)
     {
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow ,Data = new CombatEventData.ZoneChange { TerritoryType = e} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), ZoneChange = new Proto.ZoneChangeData { Territorytype = e} });
     }
 
     private void OnEncounterStart(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter start:{e}");
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow, Data = new CombatEventData.EncounterStart {TerritoryType = e } });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e } });
     }
 
     private void OnEncounterEnd(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter end:{e}");
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow, Data = new CombatEventData.EncounterEnd { TerritoryType = e} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e} });
     }
 
     private unsafe void ProcessPacketActionEffectDetour(
@@ -173,67 +173,65 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 // 2115 = Conked, BLU Magic Hammer
                 // 3642 = Candy Cane, BLU Candy Cane
                 OnNewCombatEvent?.Invoke(
-                    new CombatEvent
+                    new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
                         SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)casterPtr),
-                        TargetSnapshot = p.Snapshot(true,additionalStatus),
-                        Source = new Entity
+                        TargetSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         { 
-                        GameObjectId = sourceGameObjectId ?? 0,
-                          BaseId = sourceBaseId,
+                        GameobjectId = sourceGameObjectId ?? 0,
+                          BaseId = sourceBaseId ?? 0,
                           Name = source,
-                          Kind = sourceObjectKind ?? ObjectKind.None
+                          Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
-                        Target = new Entity 
+                        Target = new Proto.Entity 
                         { 
-                        GameObjectId = targetGameObjectId ?? 0,
-                        BaseId = targetBaseId,
+                        GameobjectId = targetGameObjectId ?? 0,
+                        BaseId = targetBaseId ?? 0,
                         Name = target,
-                        Kind = targetObjectKind ?? ObjectKind.None
+                        Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        Data = new CombatEventData.DamageTaken
+                        DamageTaken = new Proto.DamageTakenData
                         {
                             Amount = amount,
-                            Action = action?.ActionCategory.RowId == 1 ? "Auto-attack" : action?.Name.ExtractText() ?? "",
                             ActionId = actionId,
-                            Icon = action?.Icon,
+                            Icon = action?.Icon ?? 0,
                             Crit = (actionEffect.Param0 & 0x20) == 0x20,
                             DirectHit = (actionEffect.Param0 & 0x40) == 0x40,
-                            DamageType = (DamageType)(actionEffect.Param1 & 0xF),
+                            DamageType = (Proto.DamageType)(DamageType)(actionEffect.Param1 & 0xF),
                             Parried = actionEffect.Type == (int)ActionEffectType.ParriedDamage,
                             Blocked = actionEffect.Type == (int)ActionEffectType.BlockedDamage,
-                            DisplayType = (ActionType)effectHeader->ActionType
+                            DisplayType = (Proto.ActionType)(ActionType)effectHeader->ActionType
                         }
                     });
                 break;
             case ActionEffectType.Heal:
                 OnNewCombatEvent?.Invoke(
-                    new CombatEvent
+                    new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
                         SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)casterPtr),
-                        TargetSnapshot = p.Snapshot(true,additionalStatus),
-                        Source = new Entity
+                        TargetSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId ?? 0,
-                            BaseId = sourceBaseId,
+                            GameobjectId = sourceGameObjectId ?? 0,
+                            BaseId = sourceBaseId ?? 0,
                             Name = source,
-                            Kind = sourceObjectKind ?? ObjectKind.None
+                            Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
-                        Target = new Entity
+                        Target = new Proto.Entity
                         {
-                            GameObjectId = targetGameObjectId ?? 0,
-                            BaseId = targetBaseId,
+                            GameobjectId = targetGameObjectId ?? 0,
+                            BaseId = targetBaseId ?? 0,
                             Name = target,
-                            Kind = targetObjectKind ?? ObjectKind.None
+                            Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        Data = new CombatEventData.Healed
+                        Healed = new Proto.HealedData
                         {
                             Amount = amount,
                             ActionId = actionId,
-                            Action = action?.Name.ExtractText() ?? "",
-                            Icon = action?.Icon,
+                            Icon = action?.Icon ?? 0,
                             Crit = (actionEffect.Param1 & 0x20) == 0x20
                         }
                     });
@@ -269,18 +267,18 @@ public class PacketHandlersHooks : IDisposable,IProvider
         switch ((ActorControlCategory)category)
         {
             case ActorControlCategory.DoT:
-                OnNewCombatEvent?.Invoke(new CombatEvent
+                OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                 {
-                    Timestamp = DateTime.UtcNow,
-                    SourceSnapshot = p.Snapshot(),
-                    Source = new Entity
+                    TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                    SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                    Source = new Proto.Entity
                     {
-                        GameObjectId = sourceGameObjectId,
+                        GameobjectId = sourceGameObjectId,
                         BaseId = sourceBaseId,
                         Name = sourceName,
-                        Kind = sourceObjectKind
+                        Objectkind = (Proto.ObjectKind)sourceObjectKind
                     },
-                    Data = new CombatEventData.DoT
+                    Dot = new Proto.DoTData
                     {
                         Amount = param2
                     }
@@ -291,41 +289,40 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 {
                     var status = Service.DataManager.GetExcelSheet<Status>().GetRowOrDefault(param1);
                     OnNewCombatEvent?.Invoke(
-                        new CombatEvent
+                        new Proto.CombatEvent
                         {
-                            Timestamp = DateTime.UtcNow,
-                            SourceSnapshot = p.Snapshot(),
-                            Source = new Entity
+                            TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                            SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                            Source = new Proto.Entity
                             {
-                                GameObjectId = sourceGameObjectId,
+                                GameobjectId = sourceGameObjectId,
                                 BaseId = sourceBaseId,
                                 Name = sourceName,
-                                Kind = sourceObjectKind
+                                Objectkind = (Proto.ObjectKind)sourceObjectKind
                             },
-                            Data = new CombatEventData.Healed
+                            Healed = new Proto.HealedData
                             {
                                 Amount = param2,
                                 ActionId = 0,
-                                Action = status?.Name.ExtractText() ?? "",
-                                Icon = (ushort?)(status?.Icon),
+                                Icon = (uint)(ushort?)(status?.Icon),//lol TODO: do something better here
                                 Crit = param4 == 1
                             }
                         });
                 }
                 else
                 {
-                    OnNewCombatEvent?.Invoke(new CombatEvent
+                    OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
-                        SourceSnapshot = p.Snapshot(),
-                        Source = new Entity
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                        SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId,
+                            GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
                             Name = sourceName,
-                            Kind = sourceObjectKind
+                            Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
-                        Data = new CombatEventData.HoT
+                        Hot = new Proto.HoTData
                         {
                             Amount = param2
                         }
@@ -335,18 +332,18 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 break;
             case ActorControlCategory.Death:
                 {
-                    OnNewCombatEvent?.Invoke(new CombatEvent
+                    OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
-                        Source = new Entity
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                        SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId,
+                            GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
                             Name = sourceName,
-                            Kind = sourceObjectKind
+                            Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
-                        SourceSnapshot = p.Snapshot(),
-                        Data = new CombatEventData.Death { }
+                        Death = new Proto.DeathData { }
                     });
                     break;
                 }
@@ -398,26 +395,24 @@ public class PacketHandlersHooks : IDisposable,IProvider
         var status = Service.DataManager.GetExcelSheet<Status>().GetRowOrDefault(effectId);
         var targetIdStr = Service.ObjectTable.SearchById(targetId)?.Name.TextValue;
         OnNewCombatEvent?.Invoke(
-            new Events.CombatEvent
+            new Proto.CombatEvent
             {
-                Timestamp = DateTime.UtcNow,
-                SourceSnapshot = p.Snapshot(),
-                Source = new Entity
+                TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                Source = new Proto.Entity
                 {
-                    GameObjectId = sourceGameObjectId,
+                    GameobjectId = sourceGameObjectId,
                     BaseId = sourceBaseId,
                     Name = source,
-                    Kind = sourceObjectKind
+                    Objectkind = (Proto.ObjectKind)sourceObjectKind
                 },
-                Data = new CombatEventData.StatusEffect
+                StatusEffect = new Proto.StatusEffectData
                 {
 
                     Id = effectId,
                     StackCount = effect.StackCount <= status?.MaxStacks ? effect.StackCount : 0u,
-                    Icon = (ushort?)(status?.Icon),
-                    Status = status?.Name.ExtractText(),
-                    Description = status?.Description.ExtractText(),
-                    Category = (Events.StatusCategory)(status?.StatusCategory ?? 0),
+                    Icon = (uint)(ushort?)(status?.Icon),//TODO: same
+                    Category = (Proto.StatusCategory)(status?.StatusCategory ?? 0),
                     Duration = effect.Duration
                 }
             });
