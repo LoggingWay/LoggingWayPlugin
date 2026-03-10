@@ -5,6 +5,7 @@ using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Common.Math;
 using LoggingWayPlugin;
 using LoggingWayPlugin.Events;
@@ -40,7 +41,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
     private readonly Hook<ProcessPacketEffectResultDelegate> processPacketEffectResultHook = null!;
 
     public event NotifyNewCombatEvent? OnNewCombatEvent;
-
+    private List<ulong> currentCombatantIds = [];
+    private bool inEncounter = false;
     public unsafe PacketHandlersHooks()
     {
         Service.Log.Debug("Initializing PacketHandlersHooks");
@@ -69,18 +71,23 @@ public class PacketHandlersHooks : IDisposable,IProvider
     private void OnEncounterStart(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter start:{e}");
+        inEncounter = true;
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e } });
     }
 
     private void OnEncounterEndWipe(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter end:{e}");
+        inEncounter = false;
+        currentCombatantIds.Clear();
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe } });
     }
 
     private void OnEncounterEndComplete(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter end:{e}");
+        inEncounter = false;
+        currentCombatantIds.Clear();
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear} });
     }
 
@@ -178,6 +185,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 // 1715 = Malodorous, BLU Bad Breath
                 // 2115 = Conked, BLU Magic Hammer
                 // 3642 = Candy Cane, BLU Candy Cane
+                newPlayerEvent((BattleChara*)casterPtr);
                 OnNewCombatEvent?.Invoke(
                     new Proto.CombatEvent
                     {
@@ -415,7 +423,42 @@ public class PacketHandlersHooks : IDisposable,IProvider
             });
     }
 
+    private unsafe void newPlayerEvent(BattleChara* combattant)
+    {
+        Service.Log.Debug("??");
+        if (currentCombatantIds.Contains(combattant->GetGameObjectId()))
+            return;
+        currentCombatantIds.Add(combattant->GetGameObjectId());
+        if (combattant->ObjectKind != ObjectKind.Pc)
+            return;
+        if (Service.ObjectTable.LocalPlayer?.GameObjectId != combattant->GetGameObjectId().Id)
+            return;
+        var State = UIState.Instance()->PlayerState;
+        //for now we only log the local player
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent
+        {
+            TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+            SourceSnapshot = Extensions.CreateSnapshot(combattant),
+            PlayerJoin = new Proto.PlayerEnterCombat
+            {
+               Name = combattant->NameString,
+               ContentId = combattant->ContentId,
+               HomeworldId = combattant->HomeWorld,
+               GameobjectId = combattant->GetGameObjectId(),
+               JobId = combattant->ClassJob,
+                Level = combattant->Level,
+                AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],
 
+            }
+        });
+
+    }
     public void Dispose()
     {
 
