@@ -182,14 +182,12 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         { 
                         GameobjectId = sourceGameObjectId ?? 0,
                           BaseId = sourceBaseId ?? 0,
-                          Name = source,
                           Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
                         Target = new Proto.Entity 
                         { 
                         GameobjectId = targetGameObjectId ?? 0,
                         BaseId = targetBaseId ?? 0,
-                        Name = target,
                         Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
                         DamageTaken = new Proto.DamageTakenData
@@ -217,14 +215,12 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         {
                             GameobjectId = sourceGameObjectId ?? 0,
                             BaseId = sourceBaseId ?? 0,
-                            Name = source,
                             Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
                         Target = new Proto.Entity
                         {
                             GameobjectId = targetGameObjectId ?? 0,
                             BaseId = targetBaseId ?? 0,
-                            Name = target,
                             Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
                         Healed = new Proto.HealedData
@@ -275,7 +271,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     {
                         GameobjectId = sourceGameObjectId,
                         BaseId = sourceBaseId,
-                        Name = sourceName,
                         Objectkind = (Proto.ObjectKind)sourceObjectKind
                     },
                     Dot = new Proto.DoTData
@@ -297,7 +292,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
                             {
                                 GameobjectId = sourceGameObjectId,
                                 BaseId = sourceBaseId,
-                                Name = sourceName,
                                 Objectkind = (Proto.ObjectKind)sourceObjectKind
                             },
                             Healed = new Proto.HealedData
@@ -319,7 +313,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         {
                             GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
-                            Name = sourceName,
                             Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
                         Hot = new Proto.HoTData
@@ -340,7 +333,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         {
                             GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
-                            Name = sourceName,
                             Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
                         Death = new Proto.DeathData { }
@@ -403,7 +395,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 {
                     GameobjectId = sourceGameObjectId,
                     BaseId = sourceBaseId,
-                    Name = source,
                     Objectkind = (Proto.ObjectKind)sourceObjectKind
                 },
                 StatusEffect = new Proto.StatusEffectData

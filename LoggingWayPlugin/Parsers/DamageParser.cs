@@ -153,7 +153,7 @@ namespace LoggingWayPlugin.Parsers
                     var damageTaken = combatEvent.DamageTaken;//TODO: change all the refs here
                     if ((FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind)combatEvent.Source?.Objectkind != FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind.Pc)
                         return;
-                    var combatantInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo {Name = combatEvent.Source.Name, JobId = 0 });
+                    var combatantInfo = damageCounts.GetOrAdd(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), _ => new CombattantInfo {Name = Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), JobId = 0 });
                     combatantInfo.TotalDamage = combatantInfo.TotalDamage + damageTaken.Amount;
                     combatantInfo.HitCount = combatantInfo.HitCount + 1;
                     if (damageTaken.Crit && damageTaken.DirectHit)
@@ -177,21 +177,21 @@ namespace LoggingWayPlugin.Parsers
                     actionInfo.DirectHitCount = damageTaken.DirectHit ? actionInfo.DirectHitCount + 1 : actionInfo.DirectHitCount;
                     combatantInfo.ActionsBreakdown[actionName] = actionInfo;
 
-                    damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantInfo, (_, _) => combatantInfo);
+                    damageCounts.AddOrUpdate(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), combatantInfo, (_, _) => combatantInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
                 case Proto.CombatEvent.EventDataOneofCase.Healed:
                     var healed = combatEvent.Healed;
-                    var combatantHealInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo { Name = combatEvent.Source.Name, JobId = 0 });
+                    var combatantHealInfo = damageCounts.GetOrAdd(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId) ,_ => new CombattantInfo { Name = Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), JobId = 0 });
                     combatantHealInfo.TotalHealing = combatantHealInfo.TotalHealing + healed.Amount;
-                    damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantHealInfo,(_, _) => combatantHealInfo);
+                    damageCounts.AddOrUpdate(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), combatantHealInfo,(_, _) => combatantHealInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
                 case Proto.CombatEvent.EventDataOneofCase.Death:
                     var death = combatEvent.Death;
-                    var combatantDeathInfo = damageCounts.GetOrAdd(combatEvent.Source.Name ?? "Unknown", _ => new CombattantInfo { Name = combatEvent.Source.Name, JobId = 0 });
+                    var combatantDeathInfo = damageCounts.GetOrAdd(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), _ => new CombattantInfo { Name = Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), JobId = 0 });
                     combatantDeathInfo.Deaths = combatantDeathInfo.Deaths + 1;
-                    damageCounts.AddOrUpdate(combatEvent.Source.Name ?? "Unknown", combatantDeathInfo, (_,_) => combatantDeathInfo);
+                    damageCounts.AddOrUpdate(Utils.GetNameOfGameObject(combatEvent.Source.GameobjectId), combatantDeathInfo, (_,_) => combatantDeathInfo);
                     encounterResetTimer.Interval = encounterTimeoutMs;
                     break;
                 default:
