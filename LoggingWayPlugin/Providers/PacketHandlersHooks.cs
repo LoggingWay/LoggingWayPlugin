@@ -55,8 +55,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.Log.Debug("Hooks enabled");
         Service.DutyState.DutyStarted += OnEncounterStart;
         Service.DutyState.DutyRecommenced += OnEncounterStart;
-        Service.DutyState.DutyWiped += OnEncounterEnd;
-        Service.DutyState.DutyCompleted += OnEncounterEnd;
+        Service.DutyState.DutyWiped += OnEncounterEndWipe;
+        Service.DutyState.DutyCompleted += OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged += OnTerritoryChange;
         
     }
@@ -72,10 +72,16 @@ public class PacketHandlersHooks : IDisposable,IProvider
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e } });
     }
 
-    private void OnEncounterEnd(object? sender, ushort e)
+    private void OnEncounterEndWipe(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter end:{e}");
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe } });
+    }
+
+    private void OnEncounterEndComplete(object? sender, ushort e)
+    {
+        Service.Log.Verbose($"Encounter end:{e}");
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear} });
     }
 
     private unsafe void ProcessPacketActionEffectDetour(
@@ -415,8 +421,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
         Service.DutyState.DutyStarted -= OnEncounterStart;
         Service.DutyState.DutyRecommenced -= OnEncounterStart;
-        Service.DutyState.DutyWiped -= OnEncounterEnd;
-        Service.DutyState.DutyCompleted -= OnEncounterEnd;
+        Service.DutyState.DutyWiped -= OnEncounterEndWipe;
+        Service.DutyState.DutyCompleted -= OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged -= OnTerritoryChange;
         processPacketActionEffectHook.Dispose();
         processPacketEffectResultHook.Dispose();
