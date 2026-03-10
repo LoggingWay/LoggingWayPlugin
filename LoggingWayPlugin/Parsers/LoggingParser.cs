@@ -55,7 +55,7 @@ namespace LoggingWayPlugin.Parsers
             {
                 StartEncounter();
             }
-            if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterStart)
+            if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterEnd)
             {
                 EndEncounter();
             }
