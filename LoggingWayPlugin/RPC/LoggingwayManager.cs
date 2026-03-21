@@ -1,3 +1,4 @@
+using LoggingWayPlugin;
 using LoggingWayPlugin.Proto;
 using System;
 using System.Collections.Generic;
@@ -11,38 +12,14 @@ namespace LoggingWayPlugin.RPC
         public LoggingwayLoginState LoginState { get; private set; } = LoggingwayLoginState.NotLoggedIn;
         public string LoginException { get; private set; } = "";
 
-        private long? _currentReportId;
-        private DateTime _reportIdLastRefreshTime = DateTime.MinValue;
         public LoggingwayManager(LoggingwayClientWrapper clientWrapper)
         {
             _clientWrapper = clientWrapper;
+            if (_clientWrapper.HasSession) {
+                LoginState = LoggingwayLoginState.LoggedIn;
+            }
         }
 
-        public async Task RefreshReportId()
-        {
-                       if (LoginState != LoggingwayLoginState.LoggedIn)
-            {
-                Service.Log.Warning("Cannot refresh report ID when not logged in.");
-                return;
-            }
-            if(_currentReportId is null || (_reportIdLastRefreshTime - DateTime.Now).TotalHours > 6 )
-            {
-                try
-                {
-                    _currentReportId = await _clientWrapper.CreateNewReportAsync(0);
-                    Service.Log.Debug($"New report obtained with ID: {_currentReportId}");
-                    _reportIdLastRefreshTime = DateTime.Now;
-                }
-                catch (Exception ex) { Service.Log.Error($"Error creating new report: {ex.Message}"); return; }
-                
-                return;
-            }
-            
-
-        }
-        //SubmitCombatEvents will be unused for now,Encounter expect
-        //the list to begin with EncounterStart and end with EncounterEnd
-        //so basically wholesale Encounters
         public async Task<uint> SubmitEncounter(IEnumerable<CombatEvent> events)
         {
             if (LoginState != LoggingwayLoginState.LoggedIn)
@@ -50,95 +27,124 @@ namespace LoggingWayPlugin.RPC
                 Service.Log.Warning("Cannot submit combat events when not logged in.");
                 throw new InvalidOperationException("Not logged in");
             }
-            await RefreshReportId();
-            if (_currentReportId is null)
-            {
-                Service.Log.Warning("Cannot submit combat events without a report ID.");
-                throw new InvalidOperationException("No report ID");
-            }
-            return await _clientWrapper.EncounterIngestAsync(_currentReportId!.Value, events);
+            return await _clientWrapper.EncounterIngestAsync(events);
         }
-        /*public async Task<uint> SubmitCombatEvents(IAsyncEnumerable<CombatEvent> events)
+        public async Task StartLoginProcedureAsync(CancellationToken ct = default)
+        {
+            LoginState = LoggingwayLoginState.LoggingIn;
+            LoginException = string.Empty;
+
+            try
+            {
+                var redirectUri = await _clientWrapper.GetXivAuthRedirectAsync(ct);
+
+                OpenBrowser(redirectUri);
+
+                var (code, state) = await LocalCallbackServer.Instance.WaitForCallbackAsync(ct);
+
+                await _clientWrapper.LoginAsync(code, state, ct);
+
+                Service.Log.Debug("Login successful!");
+                LoginState = LoggingwayLoginState.LoggedIn;
+            }
+            catch (OperationCanceledException)
+            {
+                LoginState = LoggingwayLoginState.LoggingError;
+                LoginException = "Login was cancelled.";
+                Service.Log.Warning("Login procedure was cancelled.");
+            }
+            catch (Exception ex)
+            {
+                LoginState = LoggingwayLoginState.LoggingError;
+                LoginException = ex.Message;
+                Service.Log.Error($"Login error: {ex.Message}");
+            }
+        }
+
+        private void OpenBrowser(string uri)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = uri,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error opening browser: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<GetMyCharactersReply>GetCharacters()
         {
             if (LoginState != LoggingwayLoginState.LoggedIn)
             {
-                Service.Log.Warning("Cannot submit combat events when not logged in.");
+                Service.Log.Warning("Cannot get character info when not logged in.");
                 throw new InvalidOperationException("Not logged in");
             }
-            if(_currentReportId is null)
+            try
             {
-                Service.Log.Warning("Cannot submit combat events without a report ID.");
-                throw new InvalidOperationException("No report ID");
+                return await _clientWrapper.GetMyCharacters();
             }
-            //return await _clientWrapper.CombatEventIngestAsync(_currentReportId!.Value, events);
-        }*/
-        public void StartLoginProcedure()
-        {
-            LoginState = LoggingwayLoginState.LoggingIn;
-            _clientWrapper.GetXivAuthRedirectAsync().ContinueWith(task =>
+            catch (Exception ex)
             {
-                if (task.IsFaulted)
-                {
-                    LoginException = $"Error getting auth redirect: {task.Exception?.Message}";
-                    Service.Log.Error($"Error getting auth redirect: {task.Exception?.Message}");
-                    LoginState = LoggingwayLoginState.LoggingError;
-                    return;
-                }
-                var redirectUri = task.Result;
-                // Open the redirect URI in the user's default browser
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = redirectUri,
-                        UseShellExecute = true
-                    });
-                }
-                catch (Exception ex)
-                {
-                    LoginException = $"Error opening browser: {ex.Message}";
-                    Service.Log.Error($"Error opening browser: {ex.Message}");
-                    LoginState = LoggingwayLoginState.LoggingError;
-                }
-            }).ContinueWith(async task => {
-                await LocalCallbackServer.WaitForCallbackAsync().ContinueWith(async callbackTask =>
-                {
-                    if (callbackTask.IsFaulted)
-                    {
-                        LoginException = $"Error waiting for callback: {callbackTask.Exception?.Message}";
-                        Service.Log.Error($"Error waiting for callback: {callbackTask.Exception?.Message}");
-                        LoginState = LoggingwayLoginState.LoggingError;
-                        return;
-                    }
-                    var (code, state) = callbackTask.Result;
-                    try
-                    {
-                        await _clientWrapper.LoginAsync(code, state);
-                        LoginException = "";
-                        Service.Log.Debug("Login successful!");
-                        LoginState = LoggingwayLoginState.LoggedIn;
-                    }
-                    catch (Exception ex)
-                    {
-                        LoginException = $"Error during login: {ex.Message}";
-                        Service.Log.Error($"Error during login: {ex.Message}");
-                        LoginState = LoggingwayLoginState.LoggingError;
-                    }
-                });
-
-
-
-            });
+                Service.Log.Error($"Error getting character info: {ex.Message}");
+                throw;
+            }
         }
 
+        public async Task<GetEncountersStatsReply> GetEncounterStats(long encounterId)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot get encounter stats when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            try
+            {
+                var reply = await _clientWrapper.GetEncounterStats(encounterId);
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                Service.Log.Error($"Error getting encounter stats: {ex.Message}");
+                throw;
+            }
+        }
 
+        public async Task<GetMyEncountersReply> GetMyEncounters(uint zoneId)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot get encounters when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            try
+            {
+                var reply = await _clientWrapper.GetMyEncounters(zoneId);
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                Service.Log.Error($"Error getting encounters: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task Logout()
+        {
+            await _clientWrapper.Logout();
+            LoginState = LoggingwayLoginState.NotLoggedIn;
+        }
     }
-}
 
-public enum LoggingwayLoginState
-{
-    NotLoggedIn,
-    LoggingIn,
-    LoggingError,
-    LoggedIn
+    public enum LoggingwayLoginState
+    {
+        NotLoggedIn,
+        LoggingIn,
+        LoggingError,
+        LoggedIn
+    }
 }

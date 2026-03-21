@@ -51,7 +51,6 @@
 
 
     <ItemGroup>
-      <Protobuf Include="../Proto/combat_events.proto" />
-        <Protobuf Include="../Proto/loggingway_rpc.proto" GrpcServices="Client" />
+      <Protobuf Include="../Proto/combat_events.proto" GrpcServices="Client" />
     </ItemGroup>
 </Project>

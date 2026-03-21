@@ -40,7 +40,9 @@ public sealed class Plugin : IDalamudPlugin
         Service.Initialize(PluginInterface);
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Service.Log.Verbose("Initializing Loggingway client...");
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:8085"));
+        Service.Log.Debug(Configuration.LastSessionId);
+        Service.Log.Debug(Configuration.SessionExpirationDate.ToString());
+        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:8085/",Configuration));
         // You might normally want to embed resources and load them from the manifest stream
         var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
 
@@ -52,7 +54,7 @@ public sealed class Plugin : IDalamudPlugin
         
         debugParser = new DebugParser(packetHandlersHooks);
         
-        MainWindow = new MainWindow(this, goatImagePath);
+        MainWindow = new MainWindow(this);
         ParsingWindow = new ParsingWindow(parser,Configuration);
         
         ConfigWindow = new ConfigWindow(this);
@@ -105,5 +107,5 @@ public sealed class Plugin : IDalamudPlugin
     }
     
     public void ToggleConfigUi() => ConfigWindow.Toggle();
-    public void ToggleMainUi() => ParsingWindow.Toggle();
+    public void ToggleMainUi() => MainWindow.Toggle();
 }

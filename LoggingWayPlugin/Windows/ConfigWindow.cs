@@ -15,7 +15,7 @@ public class ConfigWindow : Window, IDisposable
     // We give this window a constant ID using ###.
     // This allows for labels to be dynamic, like "{FPS Counter}fps###XYZ counter window",
     // and the window ID will always be "###XYZ counter window" for ImGui
-    public ConfigWindow(Plugin plugin) : base("A Wonderful Configuration Window###With a constant ID")
+    public ConfigWindow(Plugin plugin) : base("Configuration Window###LogggingWayPluginConfig1234")
     {
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
 
@@ -41,7 +41,7 @@ public class ConfigWindow : Window, IDisposable
     public override void Draw()
     {
 
-        if (ImGui.BeginTabBar("SettingsTabs"))
+        if (ImGui.BeginTabBar("SettingsTabs###loggingwayconfigtab12334"))
         {
             DrawMainSettings();
             DrawHeaderSettings();
@@ -66,39 +66,11 @@ public class ConfigWindow : Window, IDisposable
             configuration.EnableLoggingwayIntegration = enableLoggingway;
             configuration.Save();
         }
-        if (configuration.EnableLoggingwayIntegration)
-        {
-            ImGui.Indent();
-            ImGui.Text("Login Status:");
-            ImGui.SameLine();
-            if (loggingwayManager.LoginState == LoggingwayLoginState.NotLoggedIn)
-            {
-                ImGui.Text("You are not logged in to Loggingway. You may log in to enable automatic report uploads.");
-            }
-                if (ImGui.Button("Login to Loggingway"))
-            {
-                loggingwayManager.StartLoginProcedure();
-            }
-            if (loggingwayManager.LoginState == LoggingwayLoginState.LoggingIn)
-            {
-                ImGui.Text("Waiting for callback...");
-            }
-            if (loggingwayManager.LoginState == LoggingwayLoginState.LoggingError)
-            {
-                ImGui.Text("Error while trying to log in");
-                ImGui.Text(loggingwayManager.LoginException);
-            }
-            if (loggingwayManager?.LoginState == LoggingwayLoginState.LoggedIn)
-            {
-                ImGui.Text("OK");
-            }
-
-        }
         ImGui.EndTabItem();
     }
     private void DrawMainSettings()
     {
-        if (!ImGui.BeginTabItem("Main"))
+        if (!ImGui.BeginTabItem("Main###Settings"))
             return;
         ImGui.Text("Main Settings");
         ImGui.Separator();

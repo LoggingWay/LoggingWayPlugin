@@ -43,6 +43,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
     public event NotifyNewCombatEvent? OnNewCombatEvent;
     private List<ulong> currentCombatantIds = [];
     private bool inEncounter = false;
+    private uint currentCfcId = 0;
     public unsafe PacketHandlersHooks()
     {
         Service.Log.Debug("Initializing PacketHandlersHooks");
@@ -60,11 +61,17 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.DutyState.DutyWiped += OnEncounterEndWipe;
         Service.DutyState.DutyCompleted += OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged += OnTerritoryChange;
-        
+        Service.ClientState.CfPop += OnCfPop;
+
+    }
+
+    private void OnCfPop(Lumina.Excel.Sheets.ContentFinderCondition condition)
+    {
+       currentCfcId = condition.RowId;
     }
 
     private void OnTerritoryChange(ushort e)
-    {
+    {   
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), ZoneChange = new Proto.ZoneChangeData { Territorytype = e} });
     }
 
@@ -72,7 +79,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
     {
         Service.Log.Verbose($"Encounter start:{e}");
         inEncounter = true;
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e } });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e, CfcId = currentCfcId} });
     }
 
     private void OnEncounterEndWipe(object? sender, ushort e)
@@ -120,7 +127,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     uint amount = actionEffect.Value;
                     if ((actionEffect.Param4 & 0x40) == 0x40)
                         amount += (uint)actionEffect.Param3 << 16;
-                    EffectToCombatEvent(casterEntityId, casterPtr, effectHeader, actionId, p, actionEffect, amount);
+                    var mainTarget = i == 0;
+                    EffectToCombatEvent(casterEntityId, casterPtr, effectHeader, actionId, p, actionEffect, amount,mainTarget);
                 }
             }
         }
@@ -132,7 +140,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
     }
 
-    private unsafe void EffectToCombatEvent(uint casterEntityId, Character* casterPtr, ActionEffectHandler.Header* effectHeader, uint actionId,IBattleChara p, ActionEffectHandler.Effect actionEffect, uint amount)
+    private unsafe void EffectToCombatEvent(uint casterEntityId, Character* casterPtr, ActionEffectHandler.Header* effectHeader, uint actionId,IBattleChara p, ActionEffectHandler.Effect actionEffect, uint amount,bool mainTarget)
     {
         Action? action = null;
         string? source = null;
@@ -158,7 +166,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
         targetEntityId ??= p.EntityId;
         targetGameObjectId ??= ((BattleChara*)p.Address)->GetGameObjectId().Id;
         targetBaseId ??= ((BattleChara*)p.Address)->BaseId;
-        targetObjectKind ??= (ObjectKind)p.ObjectKind;//
+        targetObjectKind ??= (ObjectKind)p.ObjectKind;
+        var State = UIState.Instance()->PlayerState;
         switch ((ActionEffectType)actionEffect.Type)
         {
             case ActionEffectType.Miss:
@@ -204,6 +213,13 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         BaseId = targetBaseId ?? 0,
                         Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
+                        LocalSnapshot = new Proto.LocalPlayerSnapshot{AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
                         DamageTaken = new Proto.DamageTakenData
                         {
                             Amount = amount,
@@ -214,7 +230,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
                             DamageType = (Proto.DamageType)(DamageType)(actionEffect.Param1 & 0xF),
                             Parried = actionEffect.Type == (int)ActionEffectType.ParriedDamage,
                             Blocked = actionEffect.Type == (int)ActionEffectType.BlockedDamage,
-                            DisplayType = (Proto.ActionType)(ActionType)effectHeader->ActionType
+                            DisplayType = (Proto.ActionType)(ActionType)effectHeader->ActionType,
+                            MainTarget = mainTarget,
                         }
                     });
                 break;
@@ -237,6 +254,15 @@ public class PacketHandlersHooks : IDisposable,IProvider
                             BaseId = targetBaseId ?? 0,
                             Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
+                        LocalSnapshot = new Proto.LocalPlayerSnapshot
+                        {
+                            AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
                         Healed = new Proto.HealedData
                         {
                             Amount = amount,
@@ -274,6 +300,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
         var sourceGameObjectId = ((BattleChara*)p.Address)->GetGameObjectId().Id;
         var sourceBaseId = ((BattleChara*)p.Address)->BaseId;
         var sourceObjectKind = ((BattleChara*)p.Address)->ObjectKind;
+        var State = UIState.Instance()->PlayerState;
         switch ((ActorControlCategory)category)
         {
             case ActorControlCategory.DoT:
@@ -287,6 +314,15 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         BaseId = sourceBaseId,
                         Objectkind = (Proto.ObjectKind)sourceObjectKind
                     },
+                    LocalSnapshot = new Proto.LocalPlayerSnapshot
+                    {
+                        AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
                     Dot = new Proto.DoTData
                     {
                         Amount = param2
@@ -400,6 +436,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
         var status = Service.DataManager.GetExcelSheet<Status>().GetRowOrDefault(effectId);
         var targetIdStr = Service.ObjectTable.SearchById(targetId)?.Name.TextValue;
+        var State = UIState.Instance()->PlayerState;
         OnNewCombatEvent?.Invoke(
             new Proto.CombatEvent
             {
@@ -411,6 +448,15 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     BaseId = sourceBaseId,
                     Objectkind = (Proto.ObjectKind)sourceObjectKind
                 },
+                LocalSnapshot = new Proto.LocalPlayerSnapshot
+                {
+                    AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
                 StatusEffect = new Proto.StatusEffectData
                 {
 
@@ -425,7 +471,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
     private unsafe void newPlayerEvent(BattleChara* combattant)
     {
-        Service.Log.Debug("??");
         if (currentCombatantIds.Contains(combattant->GetGameObjectId()))
             return;
         currentCombatantIds.Add(combattant->GetGameObjectId());
@@ -439,12 +484,18 @@ public class PacketHandlersHooks : IDisposable,IProvider
         {
             TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
             SourceSnapshot = Extensions.CreateSnapshot(combattant),
+            Source = new Proto.Entity
+            {
+                GameobjectId = combattant->GetGameObjectId().Id,
+                BaseId = combattant->BaseId,
+                Objectkind = (Proto.ObjectKind)combattant->ObjectKind
+            },
             PlayerJoin = new Proto.PlayerEnterCombat
             {
                Name = combattant->NameString,
                ContentId = combattant->ContentId,
                HomeworldId = combattant->HomeWorld,
-               GameobjectId = combattant->GetGameObjectId(),
+               GameobjectId = combattant->GetGameObjectId().Id,
                JobId = combattant->ClassJob,
                 Level = combattant->Level,
                 AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
@@ -467,6 +518,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.DutyState.DutyWiped -= OnEncounterEndWipe;
         Service.DutyState.DutyCompleted -= OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged -= OnTerritoryChange;
+        Service.ClientState.CfPop -= OnCfPop;
         processPacketActionEffectHook.Dispose();
         processPacketEffectResultHook.Dispose();
         processPacketActorControlHook.Dispose();
