@@ -48,8 +48,10 @@ public class Configuration : IPluginConfiguration
     public bool ShowOverheal = true;
 
 
-    // Loggingway settings
+    // Loggingway related settings
     public bool EnableLoggingwayIntegration { get; set; } = false;
+    public string LastSessionId { get; set; } = string.Empty;
+    public DateTime SessionExpirationDate { get; set; } = DateTime.MinValue;
     //Debug values
     public bool IndentLogLines { get; set; } = false;
     public bool IsConfigWindowMovable { get; set; } = true;

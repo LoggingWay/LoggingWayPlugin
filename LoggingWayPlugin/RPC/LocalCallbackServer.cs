@@ -6,13 +6,26 @@ using System.Threading.Tasks;
 using System.Web;
 
 namespace LoggingWayPlugin.RPC;
-public static class LocalCallbackServer
+
+public sealed class LocalCallbackServer : IDisposable
 {
-    public static async Task<(string code, string state)> WaitForCallbackAsync(
-        int port = 6767,
-        CancellationToken ct = default)
+    private static readonly Lazy<LocalCallbackServer> _instance = new(() => new LocalCallbackServer());
+    public static LocalCallbackServer Instance => _instance.Value;
+
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private bool _isListening;
+    private const int Port = 6767;
+
+    private LocalCallbackServer() { }
+
+    public async Task<(string Code, string State)> WaitForCallbackAsync(CancellationToken ct = default)
     {
-        var prefix = $"http://localhost:{port}/";
+        // Prevent multiple simultaneous listeners
+        if (!await _lock.WaitAsync(0, ct))
+            throw new InvalidOperationException("A callback listener is already active.");
+
+        _isListening = true;
+        var prefix = $"http://localhost:{Port}/";
 
         using var listener = new HttpListener();
         listener.Prefixes.Add(prefix);
@@ -23,28 +36,38 @@ public static class LocalCallbackServer
         try
         {
             var context = await listener.GetContextAsync().WaitAsync(ct);
-
             var query = HttpUtility.ParseQueryString(context.Request.Url!.Query);
 
             var code = query["code"];
             var state = query["state"];
 
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
-                Service.Log.Error("Received callback without code or state parameters.");
+                throw new InvalidOperationException("Received callback without code or state parameters.");
 
-            // Respond to browser
-            var responseString = "Login successful. You can close this window.";
-            var buffer = Encoding.UTF8.GetBytes(responseString);
-
-            context.Response.ContentLength64 = buffer.Length;
-            await context.Response.OutputStream.WriteAsync(buffer);
-            context.Response.OutputStream.Close();
+            await RespondToBrowserAsync(context);
 
             return (code!, state!);
         }
         finally
         {
             listener.Stop();
+            _isListening = false;
+            _lock.Release();
         }
+    }
+
+    private static async Task RespondToBrowserAsync(HttpListenerContext context)
+    {
+        const string responseString = "Login successful. You can close this window.";
+        var buffer = Encoding.UTF8.GetBytes(responseString);
+
+        context.Response.ContentLength64 = buffer.Length;
+        await context.Response.OutputStream.WriteAsync(buffer);
+        context.Response.OutputStream.Close();
+    }
+
+    public void Dispose()
+    {
+        _lock.Dispose();
     }
 }

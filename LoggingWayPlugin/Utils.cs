@@ -1,4 +1,5 @@
 using Dalamud.Game.ClientState.Objects.SubKinds;
+using Dalamud.Game.ClientState.Objects.Types;
 using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Concurrent;
@@ -11,7 +12,7 @@ namespace LoggingWayPlugin
 {
     public static class Utils
     {
-        public static uint GetJobIdForPlayer(uint? objectId)
+        public static uint GetJobIdForPlayer(ulong? objectId)
         {
             if (objectId == null)
                 return 0;
@@ -20,6 +21,14 @@ namespace LoggingWayPlugin
           return p.ClassJob.RowId;
         }
 
+        public static string GetNameOfGameObject(ulong? objectId)
+        {
+            if(objectId == null)
+                return "unknown";
+            if (Service.ObjectTable.SearchById(objectId.Value) is not ICharacter p)
+                return "unknown";
+            return p.Name.ToString() ?? "unknown";
+        }
         public static string GetCurrentZoneName()
         {
             return Service.DataManager.GetExcelSheet<TerritoryType>()!.GetRow(Service.ClientState.TerritoryType)!.PlaceName.Value.Name.ToString() ?? "Unknown";

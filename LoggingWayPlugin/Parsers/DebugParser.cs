@@ -20,7 +20,7 @@ namespace LoggingWayPlugin.Parser
             _provider.OnNewCombatEvent -= HandleNewCombatEvent;
         }
 
-        private void HandleNewCombatEvent(CombatEvent combatEvent)
+        private void HandleNewCombatEvent(Proto.CombatEvent combatEvent)
         {
             Service.Log.Debug(combatEvent.ToString());
         }

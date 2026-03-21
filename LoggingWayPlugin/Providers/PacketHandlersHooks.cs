@@ -5,6 +5,7 @@ using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Common.Math;
 using LoggingWayPlugin;
 using LoggingWayPlugin.Events;
@@ -40,7 +41,9 @@ public class PacketHandlersHooks : IDisposable,IProvider
     private readonly Hook<ProcessPacketEffectResultDelegate> processPacketEffectResultHook = null!;
 
     public event NotifyNewCombatEvent? OnNewCombatEvent;
-
+    private List<ulong> currentCombatantIds = [];
+    private bool inEncounter = false;
+    private uint currentCfcId = 0;
     public unsafe PacketHandlersHooks()
     {
         Service.Log.Debug("Initializing PacketHandlersHooks");
@@ -55,27 +58,44 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.Log.Debug("Hooks enabled");
         Service.DutyState.DutyStarted += OnEncounterStart;
         Service.DutyState.DutyRecommenced += OnEncounterStart;
-        Service.DutyState.DutyWiped += OnEncounterEnd;
-        Service.DutyState.DutyCompleted += OnEncounterEnd;
+        Service.DutyState.DutyWiped += OnEncounterEndWipe;
+        Service.DutyState.DutyCompleted += OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged += OnTerritoryChange;
-        
+        Service.ClientState.CfPop += OnCfPop;
+
+    }
+
+    private void OnCfPop(Lumina.Excel.Sheets.ContentFinderCondition condition)
+    {
+       currentCfcId = condition.RowId;
     }
 
     private void OnTerritoryChange(ushort e)
-    {
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow ,Data = new CombatEventData.ZoneChange { TerritoryType = e} });
+    {   
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), ZoneChange = new Proto.ZoneChangeData { Territorytype = e} });
     }
 
     private void OnEncounterStart(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter start:{e}");
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow, Data = new CombatEventData.EncounterStart {TerritoryType = e } });
+        inEncounter = true;
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e, CfcId = currentCfcId} });
     }
 
-    private void OnEncounterEnd(object? sender, ushort e)
+    private void OnEncounterEndWipe(object? sender, ushort e)
     {
         Service.Log.Verbose($"Encounter end:{e}");
-        OnNewCombatEvent?.Invoke(new CombatEvent { Timestamp = DateTime.UtcNow, Data = new CombatEventData.EncounterEnd { TerritoryType = e} });
+        inEncounter = false;
+        currentCombatantIds.Clear();
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe } });
+    }
+
+    private void OnEncounterEndComplete(object? sender, ushort e)
+    {
+        Service.Log.Verbose($"Encounter end:{e}");
+        inEncounter = false;
+        currentCombatantIds.Clear();
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear} });
     }
 
     private unsafe void ProcessPacketActionEffectDetour(
@@ -107,7 +127,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     uint amount = actionEffect.Value;
                     if ((actionEffect.Param4 & 0x40) == 0x40)
                         amount += (uint)actionEffect.Param3 << 16;
-                    EffectToCombatEvent(casterEntityId, casterPtr, effectHeader, actionId, p, actionEffect, amount);
+                    var mainTarget = i == 0;
+                    EffectToCombatEvent(casterEntityId, casterPtr, effectHeader, actionId, p, actionEffect, amount,mainTarget);
                 }
             }
         }
@@ -119,7 +140,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
     }
 
-    private unsafe void EffectToCombatEvent(uint casterEntityId, Character* casterPtr, ActionEffectHandler.Header* effectHeader, uint actionId,IBattleChara p, ActionEffectHandler.Effect actionEffect, uint amount)
+    private unsafe void EffectToCombatEvent(uint casterEntityId, Character* casterPtr, ActionEffectHandler.Header* effectHeader, uint actionId,IBattleChara p, ActionEffectHandler.Effect actionEffect, uint amount,bool mainTarget)
     {
         Action? action = null;
         string? source = null;
@@ -145,7 +166,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
         targetEntityId ??= p.EntityId;
         targetGameObjectId ??= ((BattleChara*)p.Address)->GetGameObjectId().Id;
         targetBaseId ??= ((BattleChara*)p.Address)->BaseId;
-        targetObjectKind ??= (ObjectKind)p.ObjectKind;//
+        targetObjectKind ??= (ObjectKind)p.ObjectKind;
+        var State = UIState.Instance()->PlayerState;
         switch ((ActionEffectType)actionEffect.Type)
         {
             case ActionEffectType.Miss:
@@ -172,68 +194,80 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 // 1715 = Malodorous, BLU Bad Breath
                 // 2115 = Conked, BLU Magic Hammer
                 // 3642 = Candy Cane, BLU Candy Cane
+                newPlayerEvent((BattleChara*)casterPtr);
                 OnNewCombatEvent?.Invoke(
-                    new CombatEvent
+                    new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
                         SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)casterPtr),
-                        TargetSnapshot = p.Snapshot(true,additionalStatus),
-                        Source = new Entity
+                        TargetSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         { 
-                        GameObjectId = sourceGameObjectId ?? 0,
-                          BaseId = sourceBaseId,
-                          Name = source,
-                          Kind = sourceObjectKind ?? ObjectKind.None
+                        GameobjectId = sourceGameObjectId ?? 0,
+                          BaseId = sourceBaseId ?? 0,
+                          Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
-                        Target = new Entity 
+                        Target = new Proto.Entity 
                         { 
-                        GameObjectId = targetGameObjectId ?? 0,
-                        BaseId = targetBaseId,
-                        Name = target,
-                        Kind = targetObjectKind ?? ObjectKind.None
+                        GameobjectId = targetGameObjectId ?? 0,
+                        BaseId = targetBaseId ?? 0,
+                        Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        Data = new CombatEventData.DamageTaken
+                        LocalSnapshot = new Proto.LocalPlayerSnapshot{AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                        DamageTaken = new Proto.DamageTakenData
                         {
                             Amount = amount,
-                            Action = action?.ActionCategory.RowId == 1 ? "Auto-attack" : action?.Name.ExtractText() ?? "",
                             ActionId = actionId,
-                            Icon = action?.Icon,
+                            Icon = action?.Icon ?? 0,
                             Crit = (actionEffect.Param0 & 0x20) == 0x20,
                             DirectHit = (actionEffect.Param0 & 0x40) == 0x40,
-                            DamageType = (DamageType)(actionEffect.Param1 & 0xF),
+                            DamageType = (Proto.DamageType)(DamageType)(actionEffect.Param1 & 0xF),
                             Parried = actionEffect.Type == (int)ActionEffectType.ParriedDamage,
                             Blocked = actionEffect.Type == (int)ActionEffectType.BlockedDamage,
-                            DisplayType = (ActionType)effectHeader->ActionType
+                            DisplayType = (Proto.ActionType)(ActionType)effectHeader->ActionType,
+                            MainTarget = mainTarget,
                         }
                     });
                 break;
             case ActionEffectType.Heal:
                 OnNewCombatEvent?.Invoke(
-                    new CombatEvent
+                    new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
                         SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)casterPtr),
-                        TargetSnapshot = p.Snapshot(true,additionalStatus),
-                        Source = new Entity
+                        TargetSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId ?? 0,
-                            BaseId = sourceBaseId,
-                            Name = source,
-                            Kind = sourceObjectKind ?? ObjectKind.None
+                            GameobjectId = sourceGameObjectId ?? 0,
+                            BaseId = sourceBaseId ?? 0,
+                            Objectkind = (Proto.ObjectKind)(sourceObjectKind ?? ObjectKind.None)
                         },
-                        Target = new Entity
+                        Target = new Proto.Entity
                         {
-                            GameObjectId = targetGameObjectId ?? 0,
-                            BaseId = targetBaseId,
-                            Name = target,
-                            Kind = targetObjectKind ?? ObjectKind.None
+                            GameobjectId = targetGameObjectId ?? 0,
+                            BaseId = targetBaseId ?? 0,
+                            Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        Data = new CombatEventData.Healed
+                        LocalSnapshot = new Proto.LocalPlayerSnapshot
+                        {
+                            AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                        Healed = new Proto.HealedData
                         {
                             Amount = amount,
                             ActionId = actionId,
-                            Action = action?.Name.ExtractText() ?? "",
-                            Icon = action?.Icon,
+                            Icon = action?.Icon ?? 0,
                             Crit = (actionEffect.Param1 & 0x20) == 0x20
                         }
                     });
@@ -266,21 +300,30 @@ public class PacketHandlersHooks : IDisposable,IProvider
         var sourceGameObjectId = ((BattleChara*)p.Address)->GetGameObjectId().Id;
         var sourceBaseId = ((BattleChara*)p.Address)->BaseId;
         var sourceObjectKind = ((BattleChara*)p.Address)->ObjectKind;
+        var State = UIState.Instance()->PlayerState;
         switch ((ActorControlCategory)category)
         {
             case ActorControlCategory.DoT:
-                OnNewCombatEvent?.Invoke(new CombatEvent
+                OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                 {
-                    Timestamp = DateTime.UtcNow,
-                    SourceSnapshot = p.Snapshot(),
-                    Source = new Entity
+                    TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                    SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                    Source = new Proto.Entity
                     {
-                        GameObjectId = sourceGameObjectId,
+                        GameobjectId = sourceGameObjectId,
                         BaseId = sourceBaseId,
-                        Name = sourceName,
-                        Kind = sourceObjectKind
+                        Objectkind = (Proto.ObjectKind)sourceObjectKind
                     },
-                    Data = new CombatEventData.DoT
+                    LocalSnapshot = new Proto.LocalPlayerSnapshot
+                    {
+                        AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                    Dot = new Proto.DoTData
                     {
                         Amount = param2
                     }
@@ -291,41 +334,38 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 {
                     var status = Service.DataManager.GetExcelSheet<Status>().GetRowOrDefault(param1);
                     OnNewCombatEvent?.Invoke(
-                        new CombatEvent
+                        new Proto.CombatEvent
                         {
-                            Timestamp = DateTime.UtcNow,
-                            SourceSnapshot = p.Snapshot(),
-                            Source = new Entity
+                            TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                            SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                            Source = new Proto.Entity
                             {
-                                GameObjectId = sourceGameObjectId,
+                                GameobjectId = sourceGameObjectId,
                                 BaseId = sourceBaseId,
-                                Name = sourceName,
-                                Kind = sourceObjectKind
+                                Objectkind = (Proto.ObjectKind)sourceObjectKind
                             },
-                            Data = new CombatEventData.Healed
+                            Healed = new Proto.HealedData
                             {
                                 Amount = param2,
                                 ActionId = 0,
-                                Action = status?.Name.ExtractText() ?? "",
-                                Icon = (ushort?)(status?.Icon),
+                                Icon = (uint)(ushort?)(status?.Icon),//lol TODO: do something better here
                                 Crit = param4 == 1
                             }
                         });
                 }
                 else
                 {
-                    OnNewCombatEvent?.Invoke(new CombatEvent
+                    OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
-                        SourceSnapshot = p.Snapshot(),
-                        Source = new Entity
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                        SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId,
+                            GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
-                            Name = sourceName,
-                            Kind = sourceObjectKind
+                            Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
-                        Data = new CombatEventData.HoT
+                        Hot = new Proto.HoTData
                         {
                             Amount = param2
                         }
@@ -335,18 +375,17 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 break;
             case ActorControlCategory.Death:
                 {
-                    OnNewCombatEvent?.Invoke(new CombatEvent
+                    OnNewCombatEvent?.Invoke(new Proto.CombatEvent
                     {
-                        Timestamp = DateTime.UtcNow,
-                        Source = new Entity
+                        TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                        SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                        Source = new Proto.Entity
                         {
-                            GameObjectId = sourceGameObjectId,
+                            GameobjectId = sourceGameObjectId,
                             BaseId = sourceBaseId,
-                            Name = sourceName,
-                            Kind = sourceObjectKind
+                            Objectkind = (Proto.ObjectKind)sourceObjectKind
                         },
-                        SourceSnapshot = p.Snapshot(),
-                        Data = new CombatEventData.Death { }
+                        Death = new Proto.DeathData { }
                     });
                     break;
                 }
@@ -397,41 +436,89 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
         var status = Service.DataManager.GetExcelSheet<Status>().GetRowOrDefault(effectId);
         var targetIdStr = Service.ObjectTable.SearchById(targetId)?.Name.TextValue;
+        var State = UIState.Instance()->PlayerState;
         OnNewCombatEvent?.Invoke(
-            new Events.CombatEvent
+            new Proto.CombatEvent
             {
-                Timestamp = DateTime.UtcNow,
-                SourceSnapshot = p.Snapshot(),
-                Source = new Entity
+                TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+                SourceSnapshot = Extensions.CreateSnapshot((BattleChara*)p.Address),
+                Source = new Proto.Entity
                 {
-                    GameObjectId = sourceGameObjectId,
+                    GameobjectId = sourceGameObjectId,
                     BaseId = sourceBaseId,
-                    Name = source,
-                    Kind = sourceObjectKind
+                    Objectkind = (Proto.ObjectKind)sourceObjectKind
                 },
-                Data = new CombatEventData.StatusEffect
+                LocalSnapshot = new Proto.LocalPlayerSnapshot
+                {
+                    AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                StatusEffect = new Proto.StatusEffectData
                 {
 
                     Id = effectId,
                     StackCount = effect.StackCount <= status?.MaxStacks ? effect.StackCount : 0u,
-                    Icon = (ushort?)(status?.Icon),
-                    Status = status?.Name.ExtractText(),
-                    Description = status?.Description.ExtractText(),
-                    Category = (Events.StatusCategory)(status?.StatusCategory ?? 0),
+                    Icon = (uint)(ushort?)(status?.Icon),//TODO: same
+                    Category = (Proto.StatusCategory)(status?.StatusCategory ?? 0),
                     Duration = effect.Duration
                 }
             });
     }
 
+    private unsafe void newPlayerEvent(BattleChara* combattant)
+    {
+        if (currentCombatantIds.Contains(combattant->GetGameObjectId()))
+            return;
+        currentCombatantIds.Add(combattant->GetGameObjectId());
+        if (combattant->ObjectKind != ObjectKind.Pc)
+            return;
+        if (Service.ObjectTable.LocalPlayer?.GameObjectId != combattant->GetGameObjectId().Id)
+            return;
+        var State = UIState.Instance()->PlayerState;
+        //for now we only log the local player
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent
+        {
+            TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(),
+            SourceSnapshot = Extensions.CreateSnapshot(combattant),
+            Source = new Proto.Entity
+            {
+                GameobjectId = combattant->GetGameObjectId().Id,
+                BaseId = combattant->BaseId,
+                Objectkind = (Proto.ObjectKind)combattant->ObjectKind
+            },
+            PlayerJoin = new Proto.PlayerEnterCombat
+            {
+               Name = combattant->NameString,
+               ContentId = combattant->ContentId,
+               HomeworldId = combattant->HomeWorld,
+               GameobjectId = combattant->GetGameObjectId().Id,
+               JobId = combattant->ClassJob,
+                Level = combattant->Level,
+                AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
+                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
+                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
+                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
+                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
+                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],
 
+            }
+        });
+
+    }
     public void Dispose()
     {
 
         Service.DutyState.DutyStarted -= OnEncounterStart;
         Service.DutyState.DutyRecommenced -= OnEncounterStart;
-        Service.DutyState.DutyWiped -= OnEncounterEnd;
-        Service.DutyState.DutyCompleted -= OnEncounterEnd;
+        Service.DutyState.DutyWiped -= OnEncounterEndWipe;
+        Service.DutyState.DutyCompleted -= OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged -= OnTerritoryChange;
+        Service.ClientState.CfPop -= OnCfPop;
         processPacketActionEffectHook.Dispose();
         processPacketEffectResultHook.Dispose();
         processPacketActorControlHook.Dispose();

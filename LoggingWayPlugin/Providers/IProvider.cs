@@ -5,7 +5,7 @@ using System.Text;
 
 namespace LoggingWayPlugin.Providers
 {
-    public delegate void NotifyNewCombatEvent(CombatEvent combatEvent);
+    public delegate void NotifyNewCombatEvent(LoggingWayPlugin.Proto.CombatEvent combatEvent);
     public interface IProvider
     {
         public event NotifyNewCombatEvent? OnNewCombatEvent;
