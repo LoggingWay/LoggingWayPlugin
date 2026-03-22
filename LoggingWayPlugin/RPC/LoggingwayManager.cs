@@ -133,6 +133,25 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneId)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot get leaderboard when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            try
+            {
+                var reply = await _clientWrapper.GetLeaderBoard(zoneId);
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                Service.Log.Error($"Error getting leaderboard: {ex.Message}");
+                throw;
+            }
+        }
+
         public async Task Logout()
         {
             await _clientWrapper.Logout();

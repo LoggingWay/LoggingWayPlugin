@@ -205,6 +205,24 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneid,CancellationToken ct = default)
+        {
+            EnsureAuthenticated();
+            var headers = CreateAuthHeaders();
+            try
+            {
+                var reply = await _client.GetLeaderBoardAsync(
+                    new GetLeaderBoardRequest() { ZoneId = zoneid },
+                    headers,
+                    cancellationToken: ct);
+                return reply;
+            }
+            catch (RpcException ex)
+            {
+                throw TranslateRpcException(ex);
+            }
+        }
+
         // ============================
         // SESSIONID HANDLING
         // ============================
