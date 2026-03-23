@@ -26,9 +26,12 @@ public class MainWindow : Window, IDisposable
     // State related stuff
     private static int _selectedIdx = -1;
     private static uint _selectedZoneId = 0;
+    private ClassJob _selectedJob;
     private ContentFinderCondition _selectedCfc;
     private string _filter = string.Empty;
+    private Boolean _FilterByJob = false;
     private ExcelSheet<ContentFinderCondition> contents = Service.DataManager.GetExcelSheet<ContentFinderCondition>();
+    private ExcelSheet<ClassJob> classJobs = Service.DataManager.GetExcelSheet<ClassJob>();
     public MainWindow(Plugin plugin)
         : base("LoggingWayPlugin###LGMAIN1293488I", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
@@ -326,8 +329,34 @@ public class MainWindow : Window, IDisposable
                 if (ImGui.Selectable(selectable.Name.ToString(), selectable.RowId == _selectedCfc.RowId))
                 {
                     _selectedCfc = selectable;
-                    mainView.RefreshLeaderBoard(_selectedCfc.RowId);
+                    if (_FilterByJob && _selectedJob.RowId != 0)
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
+                    }
+                    else
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId);
+                    }
 
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGui.SameLine();
+        ImGui.Checkbox("Filter by job", ref _FilterByJob);
+        string resolvedJobName = _selectedJob.RowId != 0 ? _selectedJob.Name.ToString() : "All jobs";
+        if (ImGui.BeginCombo("Job Filter", resolvedJobName, ImGuiComboFlags.HeightLarge))
+        {
+            var jobList = classJobs.Where(c => c.RowId != 0)//remove empty or null entries
+                              .Where(c => c.ClassJobCategory.ToString() == "Disciple of War" || c.ClassJobCategory.ToString() == "Disciple of Magic")
+                              .Distinct()
+                              .ToList();
+            foreach (var job in jobList)
+            {
+                if (ImGui.Selectable(job.Name.ToString()))
+                {
+                    _selectedJob = job;
+                    mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
                 }
             }
             ImGui.EndCombo();

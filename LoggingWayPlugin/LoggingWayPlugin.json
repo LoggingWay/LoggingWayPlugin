@@ -1,12 +1,11 @@
 {
-  "Author": "your name here",
-  "Name": "Sample Plugin",
-  "Punchline": "A short one-liner that shows up in /xlplugins.",
-  "Description": "A description that shows up in /xlplugins. List any major slash-command(s).",
+  "Author": "Noevain",
+  "Name": "LoggingWayPlugin",
+  "Punchline": "The wheel need re-inventing",
+  "Description": "Parsing,Uploads,Leaderboards all-in-one plugin",
   "ApplicableVersion": "any",
   "Tags": [
-    "sample",
-    "plugin",
-    "goats"
+    "loggingway",
+    "parsihg"
   ]
 }

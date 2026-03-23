@@ -57,6 +57,15 @@ namespace LoggingWayPlugin.Windows
             });
         }
 
+        public async void RefreshLeaderBoard(uint cfcId, uint jobId
+        {
+            await RunOperation(Leaderboard, async () =>
+            {
+                var reply = await loggingwayManager.GetLeaderBoard(cfcId, jobId);
+                return (IReadOnlyList<LeaderBoardEntry>)reply.Entry.ToList();
+            });
+        }) { }
+
         private static async Task RunOperation<T>(
             OperationState<T> state,
             Func<Task<T>> operation)
