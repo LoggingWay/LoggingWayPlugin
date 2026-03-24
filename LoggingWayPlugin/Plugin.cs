@@ -40,10 +40,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         Service.Initialize(PluginInterface);
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.SessionExpirationDate = DateTime.MinValue;
+        Configuration.LastSessionId = string.Empty;
+        Configuration.Save();
         Service.Log.Verbose("Initializing Loggingway client...");
         Service.Log.Debug(Configuration.LastSessionId);
         Service.Log.Debug(Configuration.SessionExpirationDate.ToString());
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:8085/", Configuration));
+        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl", Configuration));
 
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
         packetHandlersHooks = new PacketHandlersHooks();
