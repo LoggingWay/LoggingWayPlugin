@@ -53,6 +53,10 @@ namespace LoggingWayPlugin.RPC
                 LoginException = "Login was cancelled.";
                 Service.Log.Warning("Login procedure was cancelled.");
             }
+            catch (InvalidOperationException ex)
+            {
+                Service.Log.Warning($"Callback listener already active: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 LoginState = LoggingwayLoginState.LoggingError;

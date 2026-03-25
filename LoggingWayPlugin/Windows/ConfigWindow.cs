@@ -48,10 +48,10 @@ public class ConfigWindow : Window, IDisposable
             DrawDpsSettings();
             DrawHpsSettings();
             DrawLoggingwaySettings();
-
+            DrawDebugSettings();
             ImGui.EndTabBar();
         }
-        
+
     }
 
     private void DrawLoggingwaySettings()
@@ -74,22 +74,6 @@ public class ConfigWindow : Window, IDisposable
             return;
         ImGui.Text("Main Settings");
         ImGui.Separator();
-        // Can't ref a property, so use a local copy
-        var configValue = configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Indent log lines", ref configValue))
-        {
-            configuration.IndentLogLines = configValue;
-            // Can save immediately on change if you don't want to provide a "Save and Close" button
-            configuration.Save();
-        }
-
-        var endMs = configuration.EncounterEndDelayMs;
-        if (ImGui.InputInt("Encounter end delay (ms)", ref endMs, 10, 100))
-        {
-            configuration.EncounterEndDelayMs = Math.Max(1000, endMs);
-            configuration.Save();
-        }
-        // Add main settings here in the future
         ImGui.EndTabItem();
     }
     private void DrawHeaderSettings()
@@ -306,6 +290,29 @@ public class ConfigWindow : Window, IDisposable
         }
 
         ImGui.Unindent();
+        ImGui.EndTabItem();
+    }
+
+    private void DrawDebugSettings()
+    {
+        if (!ImGui.BeginTabItem("Debug"))
+            return;
+        ImGui.Text("Debug Settings");
+        ImGui.Separator();
+        ImGui.TextWrapped("All settings below are intended for debugging/developement purposes, do not press those unless you know what you are doing or have been told to do so");
+        ImGui.Separator();
+        var outputevents = configuration.OutputEventsToLog;
+        if (ImGui.Checkbox("Output all combat event to /xllog", ref outputevents))
+        {
+            configuration.OutputEventsToLog = outputevents;
+            configuration.Save();
+        }
+        if (ImGui.Button("Clear saved sessionID"))
+        {
+            configuration.LastSessionId = string.Empty;
+            configuration.SessionExpirationDate = DateTime.MinValue;
+            configuration.Save();
+        }
         ImGui.EndTabItem();
     }
 }

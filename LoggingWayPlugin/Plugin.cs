@@ -40,12 +40,8 @@ public sealed class Plugin : IDalamudPlugin
     {
         Service.Initialize(PluginInterface);
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        Configuration.SessionExpirationDate = DateTime.MinValue;
-        Configuration.LastSessionId = string.Empty;
         Configuration.Save();
         Service.Log.Verbose("Initializing Loggingway client...");
-        Service.Log.Debug(Configuration.LastSessionId);
-        Service.Log.Debug(Configuration.SessionExpirationDate.ToString());
         loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl", Configuration));
 
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
@@ -54,7 +50,7 @@ public sealed class Plugin : IDalamudPlugin
         parser = new DamageParser(packetHandlersHooks, Configuration);
         Service.Log.Verbose("Initializing Logging module...");
 
-        debugParser = new DebugParser(packetHandlersHooks);
+        debugParser = new DebugParser(packetHandlersHooks,Configuration);
 
         MainWindow = new MainWindow(this);
         ParsingWindow = new ParsingWindow(parser, Configuration);

@@ -53,7 +53,7 @@ public class Configuration : IPluginConfiguration
     public string LastSessionId { get; set; } = string.Empty;
     public DateTime SessionExpirationDate { get; set; } = DateTime.MinValue;
     //Debug values
-    public bool IndentLogLines { get; set; } = false;
+    public bool OutputEventsToLog { get; set; } = false;
     public bool IsConfigWindowMovable { get; set; } = true;
     public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 

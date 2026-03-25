@@ -32,6 +32,9 @@ public class MainWindow : Window, IDisposable
     private Boolean _FilterByJob = false;
     private ExcelSheet<ContentFinderCondition> contents = Service.DataManager.GetExcelSheet<ContentFinderCondition>();
     private ExcelSheet<ClassJob> classJobs = Service.DataManager.GetExcelSheet<ClassJob>();
+
+    //shortlived state related stuff(variable that may change during a frame)
+    private Boolean _isDisabledThisFrame = false;
     public MainWindow(Plugin plugin)
         : base("LoggingWayPlugin###LGMAIN1293488I", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
@@ -113,15 +116,19 @@ public class MainWindow : Window, IDisposable
 
         ImGui.Text("Those are the characters associated with your Loggingway account. Only reports for those characters will be accepted");
         if (characters.IsLoading)
-            ImGui.BeginDisabled();
-
+        {
+            _isDisabledThisFrame = true;//this is needed to fix an imgui assert where EndDisabled or BeginDisabled is called without it's matching bro
+            ImGui.BeginDisabled();//because the state of IsLoading can change mid frame, TODO: containerize this logic in a helper method
+        }
         if (ImGui.Button("Refresh###CharactersRefresh123"))
         {
             mainView.RefreshCharacters();
         }
-        if (characters.IsLoading)
+        if (characters.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
-
+        }
         // Status indicator
         ImGui.SameLine();
         switch (characters.Status)
@@ -194,13 +201,19 @@ public class MainWindow : Window, IDisposable
     {
         ImGui.Text("Select an encounter to view its details");
         if (encounters.IsLoading)
+        {
             ImGui.BeginDisabled();
+            _isDisabledThisFrame = true;
+        }
         if (ImGui.Button("Refresh###EncountersRefresh123"))
         {
             mainView.RefreshEncounters(_selectedZoneId);
         }
-        if (encounters.IsLoading)
+        if (encounters.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
+        }
         // Status indicator
         ImGui.SameLine();
         switch (encounters.Status)
@@ -241,7 +254,10 @@ public class MainWindow : Window, IDisposable
     public void DrawPlayerCard(OperationState<EncounterPlayerBreakdown> breakdown)
     {
         if (breakdown.IsLoading)
+        {
+            _isDisabledThisFrame = true;
             ImGui.BeginDisabled();
+        }
         // Status indicator
         switch (breakdown.Status)
         {
@@ -275,8 +291,11 @@ public class MainWindow : Window, IDisposable
             UIHelpers.StatRow("Damage Total", $"{data.TotalDamage}", UIHelpers.ColAccent);
             UIHelpers.StatRow("Rank", $"{data.Rank} / {data.TotalRanked}", UIHelpers.ColAccent);
         }
-        if (breakdown.IsLoading)
+        if (breakdown.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
+        }
     }
 
     public void DrawLeaderboardBrowser(OperationState<IReadOnlyList<LeaderBoardEntry>> leaderboard)
@@ -329,7 +348,7 @@ public class MainWindow : Window, IDisposable
                 if (ImGui.Selectable(selectable.Name.ToString(), selectable.RowId == _selectedCfc.RowId))
                 {
                     _selectedCfc = selectable;
-                    if (_FilterByJob && _selectedJob.RowId != 0)
+                    if (_FilterByJob && _selectedJob.RowId != 0 && _selectedCfc.RowId != 0)
                     {
                         mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
                     }
@@ -357,6 +376,17 @@ public class MainWindow : Window, IDisposable
                 {
                     _selectedJob = job;
                     mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
+                    if (_FilterByJob && _selectedJob.RowId != 0 && _selectedCfc.RowId != 0)
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
+                    }
+                }
+            }
+            if(ImGui.Selectable("All jobs")){
+                _selectedJob = Service.DataManager.GetExcelSheet<ClassJob>().FirstOrDefault(c => c.RowId == 0);//It's the adventurer debug job
+                if (_selectedCfc.RowId != 0)
+                {
+                    mainView.RefreshLeaderBoard(_selectedCfc.RowId);
                 }
             }
             ImGui.EndCombo();
