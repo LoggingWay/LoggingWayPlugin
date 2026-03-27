@@ -24,7 +24,7 @@ public sealed class Plugin : IDalamudPlugin
     private const string DpsCommandName = "/loggingwaymeter";
     public Configuration Configuration { get; init; }
 
-    public readonly WindowSystem WindowSystem = new("SamplePlugin");
+    public readonly WindowSystem WindowSystem = new("LoggingWayPlugin");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
 
