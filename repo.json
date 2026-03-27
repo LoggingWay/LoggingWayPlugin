@@ -5,8 +5,8 @@
     "Punchline": "Log things so you can press buttons better(also showoff)",
     "Description": "General Logging Plugin,DPS meter and performance analysis plugin",
     "InternalName": "LoggingWayPlugin",
-    "AssemblyVersion": "0.0.0.1",
-    "TestingAssemblyVersion": "0.0.0.1",
+    "AssemblyVersion": "0.0.0.2",
+    "TestingAssemblyVersion": "0.0.0.2",
     "RepoUrl": "https://github.com/LoggingWay/LoggingWayPlugin",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 14,
@@ -18,9 +18,9 @@
     "LoadPriority": 69420,
     "LoadRequiredState": 2,
     "LoadSync": true,
-    "DownloadLinkInstall": "https://github.com/LoggingWay/LoggingWayPlugin/releases/download/0.0.0.1/LoggingWayPlugin.zip",
-    "DownloadLinkTesting": "https://github.com/LoggingWay/LoggingWayPlugin/download/testing_0.0.0.1/LoggingWayPlugin.zip",
-    "DownloadLinkUpdate": "https://github.com/LoggingWay/LoggingWayPlugin/download/LoggingWayPlugin/LoggingWayPlugin.zip",
+    "DownloadLinkInstall": "https://github.com/LoggingWay/LoggingWayPlugin/releases/download/0.0.0.2/LoggingWayPlugin.zip",
+    "DownloadLinkTesting": "https://github.com/LoggingWay/LoggingWayPlugin/download/0.0.0.2/LoggingWayPlugin.zip",
+    "DownloadLinkUpdate": "https://github.com/LoggingWay/LoggingWayPlugin/download/0.0.0.2/LoggingWayPlugin.zip",
     "IconUrl": "https://raw.githubusercontent.com/xivdev/Penumbra/master/images/icon.png"
   }
 ]
