@@ -105,7 +105,7 @@ namespace LoggingWayPlugin.Parsers
             Service.Log.Verbose($"Encounter {encounterId} started.");
         }
 
-        public void EndEncounter()
+        public void EndEncounter(bool clear)
         {
             var encounterDuration = DateTime.Now - encounterStartTime;
             var encounterInfo = new EncounterInfo
@@ -123,7 +123,7 @@ namespace LoggingWayPlugin.Parsers
         }
         public void EndEncounterTimer(Object source, ElapsedEventArgs e)
         {
-            EndEncounter();
+            EndEncounter(false);
         }
         private void HandleNewCombatEvent(Proto.CombatEvent combatEvent)
         {
@@ -133,7 +133,7 @@ namespace LoggingWayPlugin.Parsers
                     StartEncounter();
                     break;
                 case Proto.CombatEvent.EventDataOneofCase.EncounterEnd:
-                    EndEncounter();
+                    EndEncounter(false);
                     break;
                 case Proto.CombatEvent.EventDataOneofCase.StatusEffect:
                     // Handle status effect event

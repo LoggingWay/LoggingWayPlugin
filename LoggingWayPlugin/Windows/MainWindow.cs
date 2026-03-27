@@ -2,11 +2,14 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using LoggingWayPlugin.Proto;
 using LoggingWayPlugin.RPC;
+using Lumina.Excel;
 using Lumina.Excel.Sheets;
 using System;
 using System.Numerics;
+using static FFXIVClientStructs.FFXIV.Client.LayoutEngine.LayoutManager;
 using static Lumina.Data.Parsing.Layer.LayerCommon;
 
 namespace LoggingWayPlugin.Windows;
@@ -23,6 +26,15 @@ public class MainWindow : Window, IDisposable
     // State related stuff
     private static int _selectedIdx = -1;
     private static uint _selectedZoneId = 0;
+    private ClassJob _selectedJob;
+    private ContentFinderCondition _selectedCfc;
+    private string _filter = string.Empty;
+    private Boolean _FilterByJob = false;
+    private ExcelSheet<ContentFinderCondition> contents = Service.DataManager.GetExcelSheet<ContentFinderCondition>();
+    private ExcelSheet<ClassJob> classJobs = Service.DataManager.GetExcelSheet<ClassJob>();
+
+    //shortlived state related stuff(variable that may change during a frame)
+    private Boolean _isDisabledThisFrame = false;
     public MainWindow(Plugin plugin)
         : base("LoggingWayPlugin###LGMAIN1293488I", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
@@ -46,6 +58,7 @@ public class MainWindow : Window, IDisposable
             DrawMain();
             DrawCharacters(mainView.Characters);
             DrawEncounterBrowser(mainView.Encounters);
+            DrawLeaderboardBrowser(mainView.Leaderboard);
             ImGui.EndTabBar();
         }
 
@@ -103,15 +116,19 @@ public class MainWindow : Window, IDisposable
 
         ImGui.Text("Those are the characters associated with your Loggingway account. Only reports for those characters will be accepted");
         if (characters.IsLoading)
-            ImGui.BeginDisabled();
-
+        {
+            _isDisabledThisFrame = true;//this is needed to fix an imgui assert where EndDisabled or BeginDisabled is called without it's matching bro
+            ImGui.BeginDisabled();//because the state of IsLoading can change mid frame, TODO: containerize this logic in a helper method
+        }
         if (ImGui.Button("Refresh###CharactersRefresh123"))
         {
             mainView.RefreshCharacters();
         }
-        if (characters.IsLoading)
+        if (characters.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
-
+        }
         // Status indicator
         ImGui.SameLine();
         switch (characters.Status)
@@ -184,13 +201,19 @@ public class MainWindow : Window, IDisposable
     {
         ImGui.Text("Select an encounter to view its details");
         if (encounters.IsLoading)
+        {
             ImGui.BeginDisabled();
+            _isDisabledThisFrame = true;
+        }
         if (ImGui.Button("Refresh###EncountersRefresh123"))
         {
             mainView.RefreshEncounters(_selectedZoneId);
         }
-        if (encounters.IsLoading)
+        if (encounters.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
+        }
         // Status indicator
         ImGui.SameLine();
         switch (encounters.Status)
@@ -231,7 +254,10 @@ public class MainWindow : Window, IDisposable
     public void DrawPlayerCard(OperationState<EncounterPlayerBreakdown> breakdown)
     {
         if (breakdown.IsLoading)
+        {
+            _isDisabledThisFrame = true;
             ImGui.BeginDisabled();
+        }
         // Status indicator
         switch (breakdown.Status)
         {
@@ -263,8 +289,104 @@ public class MainWindow : Window, IDisposable
             UIHelpers.StatRow("Total Hits", $"{data.TotalHits}", UIHelpers.ColAccent);
             UIHelpers.StatRow("Duration", UIHelpers.FormatDuration(data.Duration), UIHelpers.ColAccent);
             UIHelpers.StatRow("Damage Total", $"{data.TotalDamage}", UIHelpers.ColAccent);
+            UIHelpers.StatRow("Rank", $"{data.Rank} / {data.TotalRanked}", UIHelpers.ColAccent);
         }
-        if (breakdown.IsLoading)
+        if (breakdown.IsLoading && _isDisabledThisFrame)
+        {
+            _isDisabledThisFrame = false;
             ImGui.EndDisabled();
+        }
+    }
+
+    public void DrawLeaderboardBrowser(OperationState<IReadOnlyList<LeaderBoardEntry>> leaderboard)
+    {
+        if (!ImGui.BeginTabItem("Leaderboards###LGBLEADERBOARDTAB44444"))
+            return;
+        if (leaderboard.Data == null)
+        {
+            ImGui.Text("Select a duty to see the leaderboard");
+        }
+        switch (leaderboard.Status)
+        {
+            case OperationStatus.Idle:
+                ImGui.TextDisabled("Not loaded");
+                break;
+            case OperationStatus.Loading:
+                ImGui.TextDisabled("Loading...");
+                break;
+            case OperationStatus.Success:
+                ImGui.TextColored(new Vector4(0, 1, 0, 1), $"OK");
+                if (leaderboard.LastUpdated.HasValue)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextDisabled($"(updated {leaderboard.LastUpdated.Value.ToLocalTime():HH:mm:ss})");
+                }
+                break;
+            case OperationStatus.Error:
+                ImGui.TextColored(new Vector4(1, 0, 0, 1), $"Error: {leaderboard.Error?.Message ?? "Unknown error"}");
+                break;
+        }
+        //Based on the plugin filter combo in the dalamud console
+        //https://github.com/goatcorp/Dalamud/blob/master/Dalamud/Interface/Internal/Windows/ConsoleWindow.cs#L705
+        string resolvedName = _selectedCfc.RowId != 0 ? _selectedCfc.Name.ToString() : "Duty name";
+        if (ImGui.BeginCombo("Duty Picker###DUTYPICKERLGLEADER", resolvedName, ImGuiComboFlags.HeightLarge))
+        {
+            var sourceNames = contents.Where(c => c.Name != "")//remove empty or null entries
+                              .Where(c => c.Name.ToString().IndexOf(_filter, StringComparison.OrdinalIgnoreCase) != -1)
+                              .ToList();
+            ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
+            ImGui.InputTextWithHint("##ContentSearchFilter", "Search duties...", ref _filter, 300);
+            ImGui.Separator();
+
+            if (!sourceNames.Any())
+            {
+                ImGui.Text("No matches found");
+            }
+
+            foreach (ContentFinderCondition selectable in sourceNames)
+            {
+                if (ImGui.Selectable(selectable.Name.ToString(), selectable.RowId == _selectedCfc.RowId))
+                {
+                    _selectedCfc = selectable;
+                    if (_FilterByJob && _selectedJob.RowId != 0 && _selectedCfc.RowId != 0)
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
+                    }
+                    else
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId);
+                    }
+
+                }
+            }
+            ImGui.EndCombo();
+        }
+        string resolvedJobName = _selectedJob.RowId != 0 ? _selectedJob.Name.ToString() : "All jobs";
+        if (ImGui.BeginCombo("Job Filter###JOBFILTERCOMBOLGLEADER", resolvedJobName, ImGuiComboFlags.HeightLarge))
+        {
+            var jobList = classJobs.Where(c => c.RowId != 0)//remove empty or null entries
+                .Where(c => c.ClassJobCategory.RowId == 30 || c.ClassJobCategory.RowId == 31)//Disciples of war and magic
+                .Distinct()              
+                .ToList();
+            foreach (var job in jobList)
+            {
+                if (ImGui.Selectable(job.Name.ToString() + "##JOBLABELS", job.RowId == _selectedJob.RowId))
+                {
+                    _selectedJob = job;
+                    if (_FilterByJob && _selectedJob.RowId != 0 && _selectedCfc.RowId != 0)
+                    {
+                        mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
+                    }
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGui.SameLine();
+        ImGui.Checkbox("Filter by job###FILJOBLGLEADER", ref _FilterByJob);
+        foreach (var entry in mainView.Leaderboard.Data ?? Array.Empty<LeaderBoardEntry>())
+        {
+            ImGui.Text($"{entry.Char.Name} - {UIHelpers.JobIdToClassJob(entry.Jobid)} - Pscore: {entry.Psccore:F1} - Rank: {entry.Rank}");
+        }
+        ImGui.EndTabItem();
     }
 }

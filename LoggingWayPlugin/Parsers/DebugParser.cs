@@ -9,10 +9,12 @@ namespace LoggingWayPlugin.Parser
     public class DebugParser : IDisposable
     {
         public IProvider _provider;
-        public DebugParser(IProvider provider)
+        private Configuration _configuration;
+        public DebugParser(IProvider provider,Configuration configuration)
         {
             _provider = provider;
             _provider.OnNewCombatEvent += HandleNewCombatEvent;
+            _configuration = configuration;
         }
 
         public void Dispose()
@@ -22,7 +24,10 @@ namespace LoggingWayPlugin.Parser
 
         private void HandleNewCombatEvent(Proto.CombatEvent combatEvent)
         {
-            Service.Log.Debug(combatEvent.ToString());
+            if (_configuration.OutputEventsToLog)
+            {
+                Service.Log.Debug(combatEvent.ToString());
+            }
         }
     }
 }

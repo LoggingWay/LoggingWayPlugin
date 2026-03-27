@@ -20,7 +20,8 @@ public sealed class Plugin : IDalamudPlugin
 {
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
 
-    private const string CommandName = "/pmycommand";
+    private const string CommandName = "/loggingway";
+    private const string DpsCommandName = "/loggingwaymeter";
     public Configuration Configuration { get; init; }
 
     public readonly WindowSystem WindowSystem = new("SamplePlugin");
@@ -39,32 +40,33 @@ public sealed class Plugin : IDalamudPlugin
     {
         Service.Initialize(PluginInterface);
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.Save();
         Service.Log.Verbose("Initializing Loggingway client...");
-        Service.Log.Debug(Configuration.LastSessionId);
-        Service.Log.Debug(Configuration.SessionExpirationDate.ToString());
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:8085/",Configuration));
-        // You might normally want to embed resources and load them from the manifest stream
-        var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
+        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl", Configuration));
 
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
-        packetHandlersHooks = new PacketHandlersHooks();
+        packetHandlersHooks = new PacketHandlersHooks(Configuration);
         Service.Log.Verbose("Initializing Parsing module...");
-        parser = new DamageParser(packetHandlersHooks,Configuration);
+        parser = new DamageParser(packetHandlersHooks, Configuration);
         Service.Log.Verbose("Initializing Logging module...");
-        
-        debugParser = new DebugParser(packetHandlersHooks);
-        
+
+        debugParser = new DebugParser(packetHandlersHooks,Configuration);
+
         MainWindow = new MainWindow(this);
-        ParsingWindow = new ParsingWindow(parser,Configuration);
-        
+        ParsingWindow = new ParsingWindow(parser, Configuration);
+
         ConfigWindow = new ConfigWindow(this);
-        loggingParser = new LoggingParser(packetHandlersHooks, Configuration,loggingwayManager);
+        loggingParser = new LoggingParser(packetHandlersHooks, Configuration, loggingwayManager);
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
         WindowSystem.AddWindow(ParsingWindow);
         Service.CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "A useful message to display in /xlhelp"
+            HelpMessage = "Display the main UI of LoggingWay"
+        });
+        Service.CommandManager.AddHandler(DpsCommandName, new CommandInfo(OnDpsCommand)
+            {
+            HelpMessage = "Display a damage meter from LoggingWay"
         });
 
         PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
@@ -98,12 +100,17 @@ public sealed class Plugin : IDalamudPlugin
         loggingParser.Dispose();
 
         Service.CommandManager.RemoveHandler(CommandName);
+        Service.CommandManager.RemoveHandler(DpsCommandName);
     }
 
     private void OnCommand(string command, string args)
     {
         // In response to the slash command, toggle the display status of our main ui
         MainWindow.Toggle();
+    }
+    private void OnDpsCommand(string commnad,string args)
+    {
+        ParsingWindow.Toggle();
     }
     
     public void ToggleConfigUi() => ConfigWindow.Toggle();

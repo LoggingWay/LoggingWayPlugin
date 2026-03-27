@@ -12,6 +12,8 @@ namespace LoggingWayPlugin.Windows
         public OperationState<IReadOnlyList<Encounter>> Encounters { get; } = new();
         public OperationState<EncounterPlayerBreakdown> Breakdown { get; } = new();
 
+        public OperationState<IReadOnlyList<LeaderBoardEntry>> Leaderboard { get; } = new();
+
         private readonly LoggingwayManager loggingwayManager;
 
         public MainView(LoggingwayManager manager)
@@ -43,6 +45,24 @@ namespace LoggingWayPlugin.Windows
             {
                 var reply = await loggingwayManager.GetEncounterStats(encounterId);
                 return reply.Playerstats;
+            });
+        }
+
+        public async void RefreshLeaderBoard(uint cfcId)
+        {
+            await RunOperation(Leaderboard, async () =>
+            {
+                var reply = await loggingwayManager.GetLeaderBoard(cfcId);
+                return (IReadOnlyList<LeaderBoardEntry>)reply.Entry.ToList();
+            });
+        }
+
+        public async void RefreshLeaderBoard(uint cfcId, uint jobId)
+        {
+            await RunOperation(Leaderboard, async () =>
+            {
+                var reply = await loggingwayManager.GetLeaderBoard(cfcId, jobId);
+                return (IReadOnlyList<LeaderBoardEntry>)reply.Entry.ToList();
             });
         }
 

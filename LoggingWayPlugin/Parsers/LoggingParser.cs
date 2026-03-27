@@ -28,8 +28,8 @@ namespace LoggingWayPlugin.Parsers
         public string logpath { get; private set; } = "";
         public int encounterTimeoutMs { get; private set; } = 2000;
 
-        private FileStream? _logStream;//Some notes:CodedOutPutstream will close the underlying stream when disposed
-        private CodedOutputStream? _codedOutputStream;
+        /*private FileStream? _logStream;//Some notes:CodedOutPutstream will close the underlying stream when disposed
+        private CodedOutputStream? _codedOutputStream;*/ //this should be moved to a proper LogManager that can do things like file cycling/schedulling
         private readonly CancellationTokenSource _cts = new();
         private LoggingwayManager _loggingwayManager;
         private ConcurrentQueue<Proto.CombatEvent> _eventQueue = new ConcurrentQueue<Proto.CombatEvent>();
@@ -57,11 +57,12 @@ namespace LoggingWayPlugin.Parsers
             }
             if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterEnd)
             {
-                EndEncounter();
+                _eventQueue.Enqueue(combatEvent);//enqueue the encounter end event so it gets included in the submission
+                bool clear = combatEvent.EncounterEnd.Reason == EncounterEndKind.Clear ? true : false;
+                EndEncounter(clear);
             }
             if (encounterActive) //event can come through outside of encounters, which will throw an error either null writer or writing to a disposed stream
             {
-                _codedOutputStream?.WriteMessage(combatEvent);
                 _eventQueue.Enqueue(combatEvent);
                 //BatchAndSubmitEvents(proto);
             }
@@ -80,67 +81,49 @@ namespace LoggingWayPlugin.Parsers
 
 
                  });
+                if (_config.SendChatNotificationsOnUpload)
+                {
+                    Service.ChatGui.Print("[LoggingWay]Encounter uploaded for ranking");
+                }
             }
             catch (Exception ex)
             {
                 Service.Log.Error($"Error submitting combat events: {ex.Message}");
             }
         }
-       /* private void BatchAndSubmitEvents(Proto.CombatEvent combatEvent)
-        {
-            _eventQueue.Enqueue(combatEvent);
-            if (_eventQueue.Count <= 10) // Arbitrary
-                return;
-            Task.Run(async () =>
-            {
-                var eventsToSubmit = new List<Proto.CombatEvent>();
-                while (_eventQueue.TryDequeue(out var queuedCombatEvent))
-                {
-                    eventsToSubmit.Add(queuedCombatEvent);
-                }
-                if (eventsToSubmit.Count > 0)
-                {
-                    await _loggingwayManager.SubmitCombatEvents(eventsToSubmit.ToAsyncEnumerable());
-                }
-            });
-            
-        }
-       */
         public void Dispose()
         {
             _provider.OnNewCombatEvent -= HandleNewCombatEvent;
-            _codedOutputStream?.Dispose();
         }
 
         public void StartEncounter()
         {
-            if (encounterActive)
-            {
-                Service.Log.Error("Start encounter event received but encounter is already running...");
-            }
             encounterStartTime = DateTime.Now;
             encounterId = Utils.GetCurrentZoneName() + " " + encounterStartTime.ToString("HHmmss");
             encounterActive = true;
             //encounterResetTimer.Interval = encounterTimeoutMs;
             //encounterResetTimer.Start();
-            _logStream = new FileStream(System.IO.Path.Combine(logpath, $"{encounterId}.proto"), FileMode.Create, FileAccess.Write, FileShare.Read);
             _eventQueue.Clear();
-            _codedOutputStream = new CodedOutputStream(_logStream);
             Service.Log.Verbose($"Encounter {encounterId} started.");
         }
 
-        public void EndEncounter()
+        public void EndEncounter(bool clear)
         {
             if (!encounterActive) {
-                Service.Log.Error("End encounter event received but no encounter is active");
-                return; 
+                Service.Log.Error("End encounter event received but no encounter is active");//this might never be possible, have to investigate client state after a dc->reconnect
+                return; //regardless this is an error state, next start encounter will reset everything
             }
             var encounterDuration = DateTime.Now - encounterStartTime;
             encounterActive = false;
             encounterEndTime = DateTime.Now;
-            _codedOutputStream?.Flush();
-            _codedOutputStream?.Dispose();
-            SubmitQueue();
+            if (clear)
+            {
+                SubmitQueue();
+            }
+            else
+            {
+                _eventQueue?.Clear();
+            }
         }
     }
 }

@@ -53,6 +53,10 @@ namespace LoggingWayPlugin.RPC
                 LoginException = "Login was cancelled.";
                 Service.Log.Warning("Login procedure was cancelled.");
             }
+            catch (InvalidOperationException ex)
+            {
+                Service.Log.Warning($"Callback listener already active: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 LoginState = LoggingwayLoginState.LoggingError;
@@ -129,6 +133,44 @@ namespace LoggingWayPlugin.RPC
             catch (Exception ex)
             {
                 Service.Log.Error($"Error getting encounters: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneId)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot get leaderboard when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            try
+            {
+                var reply = await _clientWrapper.GetLeaderBoard(zoneId);
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                Service.Log.Error($"Error getting leaderboard: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneId, uint jobId)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot get leaderboard when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            try
+            {
+                var reply = await _clientWrapper.GetLeaderBoard(zoneId, jobId);
+                return reply;
+            }
+            catch (Exception ex)
+            {
+                Service.Log.Error($"Error getting leaderboard: {ex.Message}");
                 throw;
             }
         }

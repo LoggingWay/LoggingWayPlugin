@@ -22,7 +22,7 @@ public sealed class LocalCallbackServer : IDisposable
     {
         // Prevent multiple simultaneous listeners
         if (!await _lock.WaitAsync(0, ct))
-            throw new InvalidOperationException("A callback listener is already active.");
+            throw new InvalidOperationException("A callback listener is already active.");//this will be caught in login procedure
 
         _isListening = true;
         var prefix = $"http://localhost:{Port}/";
