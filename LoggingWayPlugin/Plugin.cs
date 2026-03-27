@@ -45,7 +45,7 @@ public sealed class Plugin : IDalamudPlugin
         loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl", Configuration));
 
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
-        packetHandlersHooks = new PacketHandlersHooks();
+        packetHandlersHooks = new PacketHandlersHooks(Configuration);
         Service.Log.Verbose("Initializing Parsing module...");
         parser = new DamageParser(packetHandlersHooks, Configuration);
         Service.Log.Verbose("Initializing Logging module...");

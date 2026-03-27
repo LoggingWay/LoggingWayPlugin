@@ -8,6 +8,6 @@ namespace LoggingWayPlugin.Parsers
     public interface IParser
     {
         public void StartEncounter();
-        public void EndEncounter();
+        public void EndEncounter(bool clear);
     }
 }

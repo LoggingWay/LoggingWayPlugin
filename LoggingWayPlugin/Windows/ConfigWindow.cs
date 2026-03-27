@@ -66,6 +66,16 @@ public class ConfigWindow : Window, IDisposable
             configuration.EnableLoggingwayIntegration = enableLoggingway;
             configuration.Save();
         }
+        var enableChatReminderOnZone = configuration.SendReminderOnZoningIntoDuty;
+        if (ImGui.Checkbox("Send a chat reminder if loggingway is recording on duty zone in?",ref enableChatReminderOnZone)){
+            configuration.SendReminderOnZoningIntoDuty = enableChatReminderOnZone;
+            configuration.Save();
+        }
+        var enableNotifyChatOnUpload = configuration.SendChatNotificationsOnUpload;
+        if (ImGui.Checkbox("Send a chat message on successfull upload", ref enableNotifyChatOnUpload)) {
+            configuration.EnableLoggingwayIntegration = enableNotifyChatOnUpload;
+            configuration.Save();
+        }
         ImGui.EndTabItem();
     }
     private void DrawMainSettings()
@@ -307,10 +317,16 @@ public class ConfigWindow : Window, IDisposable
             configuration.OutputEventsToLog = outputevents;
             configuration.Save();
         }
+        ImGui.TextWrapped("Do not give your sessionID to anyone");
+        if (ImGui.Button("Print sessionID to /xllog"))
+        {
+            Service.Log.Debug(configuration.LastSessionId);
+        }
         if (ImGui.Button("Clear saved sessionID"))
         {
             configuration.LastSessionId = string.Empty;
             configuration.SessionExpirationDate = DateTime.MinValue;
+            Service.ChatGui.Print("[Loggingway]SessionID cleared,restart the plugin");
             configuration.Save();
         }
         ImGui.EndTabItem();

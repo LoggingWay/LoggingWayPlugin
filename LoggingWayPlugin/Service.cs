@@ -29,7 +29,7 @@ namespace LoggingWayPlugin
         [PluginService] public static IChatGui ChatGui { get; private set; } = null!;
         [PluginService] public static IGameGui GameGui { get; private set; } = null!;
         [PluginService] public static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
-
+        [PluginService] public static INotificationManager NotificationManager { get; private set; } = null!;
         public static void Initialize(IDalamudPluginInterface pluginInterface)
             => pluginInterface.Create<Service>();
     }

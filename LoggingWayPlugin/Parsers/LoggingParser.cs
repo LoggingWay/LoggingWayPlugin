@@ -58,7 +58,8 @@ namespace LoggingWayPlugin.Parsers
             if (combatEvent.EventDataCase is CombatEvent.EventDataOneofCase.EncounterEnd)
             {
                 _eventQueue.Enqueue(combatEvent);//enqueue the encounter end event so it gets included in the submission
-                EndEncounter();
+                bool clear = combatEvent.EncounterEnd.Reason == EncounterEndKind.Clear ? true : false;
+                EndEncounter(clear);
             }
             if (encounterActive) //event can come through outside of encounters, which will throw an error either null writer or writing to a disposed stream
             {
@@ -80,6 +81,10 @@ namespace LoggingWayPlugin.Parsers
 
 
                  });
+                if (_config.SendChatNotificationsOnUpload)
+                {
+                    Service.ChatGui.Print("[LoggingWay]Encounter uploaded for ranking");
+                }
             }
             catch (Exception ex)
             {
@@ -102,7 +107,7 @@ namespace LoggingWayPlugin.Parsers
             Service.Log.Verbose($"Encounter {encounterId} started.");
         }
 
-        public void EndEncounter()
+        public void EndEncounter(bool clear)
         {
             if (!encounterActive) {
                 Service.Log.Error("End encounter event received but no encounter is active");//this might never be possible, have to investigate client state after a dc->reconnect
@@ -111,7 +116,14 @@ namespace LoggingWayPlugin.Parsers
             var encounterDuration = DateTime.Now - encounterStartTime;
             encounterActive = false;
             encounterEndTime = DateTime.Now;
-            SubmitQueue();
+            if (clear)
+            {
+                SubmitQueue();
+            }
+            else
+            {
+                _eventQueue?.Clear();
+            }
         }
     }
 }

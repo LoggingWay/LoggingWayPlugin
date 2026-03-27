@@ -22,19 +22,8 @@ namespace LoggingWayPlugin.RPC
 
         public bool HasSession => !_sessionID.IsNullOrEmpty() && DateTime.UtcNow < _sessionExpirationDate;
         public LoggingwayClientWrapper(string grpcEndpoint,Configuration config)
-        {//needed for dev to allow gRPC<>docker communication without TLS,never turn this on for release
-#if DEBUG
-            _channel = GrpcChannel.ForAddress(grpcEndpoint, new GrpcChannelOptions
-            {
-                HttpHandler = new HttpClientHandler
-                {
-                    // Required for h2c (HTTP/2 without TLS)
-                    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-                }
-            });
-#elif RELEASE
+        {
             _channel = GrpcChannel.ForAddress(grpcEndpoint);
-#endif
             _client = new Loggingway.LoggingwayClient(_channel);
             _configuration = config;
             _sessionID = config.LastSessionId;

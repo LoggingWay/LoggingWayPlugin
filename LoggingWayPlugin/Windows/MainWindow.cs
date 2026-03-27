@@ -329,7 +329,7 @@ public class MainWindow : Window, IDisposable
         //Based on the plugin filter combo in the dalamud console
         //https://github.com/goatcorp/Dalamud/blob/master/Dalamud/Interface/Internal/Windows/ConsoleWindow.cs#L705
         string resolvedName = _selectedCfc.RowId != 0 ? _selectedCfc.Name.ToString() : "Duty name";
-        if (ImGui.BeginCombo("Duty Picker", resolvedName, ImGuiComboFlags.HeightLarge))
+        if (ImGui.BeginCombo("Duty Picker###DUTYPICKERLGLEADER", resolvedName, ImGuiComboFlags.HeightLarge))
         {
             var sourceNames = contents.Where(c => c.Name != "")//remove empty or null entries
                               .Where(c => c.Name.ToString().IndexOf(_filter, StringComparison.OrdinalIgnoreCase) != -1)
@@ -361,36 +361,28 @@ public class MainWindow : Window, IDisposable
             }
             ImGui.EndCombo();
         }
-        ImGui.SameLine();
-        ImGui.Checkbox("Filter by job", ref _FilterByJob);
         string resolvedJobName = _selectedJob.RowId != 0 ? _selectedJob.Name.ToString() : "All jobs";
-        if (ImGui.BeginCombo("Job Filter", resolvedJobName, ImGuiComboFlags.HeightLarge))
+        if (ImGui.BeginCombo("Job Filter###JOBFILTERCOMBOLGLEADER", resolvedJobName, ImGuiComboFlags.HeightLarge))
         {
             var jobList = classJobs.Where(c => c.RowId != 0)//remove empty or null entries
-                              .Where(c => c.ClassJobCategory.ToString() == "Disciple of War" || c.ClassJobCategory.ToString() == "Disciple of Magic")
-                              .Distinct()
-                              .ToList();
+                .Where(c => c.ClassJobCategory.RowId == 30 || c.ClassJobCategory.RowId == 31)//Disciples of war and magic
+                .Distinct()              
+                .ToList();
             foreach (var job in jobList)
             {
-                if (ImGui.Selectable(job.Name.ToString()))
+                if (ImGui.Selectable(job.Name.ToString() + "##JOBLABELS", job.RowId == _selectedJob.RowId))
                 {
                     _selectedJob = job;
-                    mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
                     if (_FilterByJob && _selectedJob.RowId != 0 && _selectedCfc.RowId != 0)
                     {
                         mainView.RefreshLeaderBoard(_selectedCfc.RowId, _selectedJob.RowId);
                     }
                 }
             }
-            if(ImGui.Selectable("All jobs")){
-                _selectedJob = Service.DataManager.GetExcelSheet<ClassJob>().FirstOrDefault(c => c.RowId == 0);//It's the adventurer debug job
-                if (_selectedCfc.RowId != 0)
-                {
-                    mainView.RefreshLeaderBoard(_selectedCfc.RowId);
-                }
-            }
             ImGui.EndCombo();
         }
+        ImGui.SameLine();
+        ImGui.Checkbox("Filter by job###FILJOBLGLEADER", ref _FilterByJob);
         foreach (var entry in mainView.Leaderboard.Data ?? Array.Empty<LeaderBoardEntry>())
         {
             ImGui.Text($"{entry.Char.Name} - {UIHelpers.JobIdToClassJob(entry.Jobid)} - Pscore: {entry.Psccore:F1} - Rank: {entry.Rank}");

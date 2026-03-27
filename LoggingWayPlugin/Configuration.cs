@@ -50,6 +50,10 @@ public class Configuration : IPluginConfiguration
 
     // Loggingway related settings
     public bool EnableLoggingwayIntegration { get; set; } = false;
+    public bool SendReminderOnZoningIntoDuty { get; set; } = true;
+    public bool SendChatNotificationsOnUpload { get; set; } = true;
+
+    // Not user facing stuff
     public string LastSessionId { get; set; } = string.Empty;
     public DateTime SessionExpirationDate { get; set; } = DateTime.MinValue;
     //Debug values

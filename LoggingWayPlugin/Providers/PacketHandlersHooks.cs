@@ -44,11 +44,12 @@ public class PacketHandlersHooks : IDisposable,IProvider
     private List<ulong> currentCombatantIds = [];
     private bool inEncounter = false;
     private uint currentCfcId = 0;
-    public unsafe PacketHandlersHooks()
+    private Configuration _config;
+    public unsafe PacketHandlersHooks(Configuration config)
     {
         Service.Log.Debug("Initializing PacketHandlersHooks");
         Service.GameInteropProvider.InitializeFromAttributes(this);
-
+        _config = config;
         processPacketActionEffectHook =
             Service.GameInteropProvider.HookFromSignature<ProcessPacketActionEffectDelegate>(ActionEffectHandler.Addresses.Receive.String,
                 ProcessPacketActionEffectDetour);
@@ -67,6 +68,10 @@ public class PacketHandlersHooks : IDisposable,IProvider
 
     private void OnCfPop(Lumina.Excel.Sheets.ContentFinderCondition condition)
     {
+        if (_config.SendReminderOnZoningIntoDuty)
+        {
+            Service.ChatGui.Print($"[LoggingWay]Zoning in for {condition.Name}, LoggingWayIntegration is "+ (_config.EnableLoggingwayIntegration == true ? "On,successfull kill will be uploaded for ranking" : "Off"));
+        }
        currentCfcId = condition.RowId;
     }
 
