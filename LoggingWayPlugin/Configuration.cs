@@ -1,4 +1,6 @@
 using Dalamud.Configuration;
+using LoggingWayPlugin.Proto;
+using LoggingWayPlugin.RPC;
 using System;
 
 namespace LoggingWayPlugin;
@@ -56,6 +58,9 @@ public class Configuration : IPluginConfiguration
     // Not user facing stuff
     public string LastSessionId { get; set; } = string.Empty;
     public DateTime SessionExpirationDate { get; set; } = DateTime.MinValue;
+
+    public OperationState<IReadOnlyList<Character>> Characters { get; set; } = new();
+    public OperationState<IReadOnlyList<Encounter>> Encounters { get; set; } = new();
     //Debug values
     public bool OutputEventsToLog { get; set; } = false;
     public bool IsConfigWindowMovable { get; set; } = true;

@@ -80,7 +80,16 @@ namespace LoggingWayPlugin.RPC
                     Code = code,
                     State = state
                 }, cancellationToken: ct);
-
+                if (reply.Code != 0)
+                {
+                    Service.Log.Warning("No characters found while checking XivAuth");
+                    Service.NotificationManager.AddNotification(new Notification
+                    {
+                        Title = "LoggingWay",
+                        Content = "No Characters where found associated with your XivAuth account,do not forget to add characters via the associated characters tab",
+                        Type = NotificationType.Warning
+                    });
+                }
                 StoreSessionID(reply.SessionID);
             }
             catch (RpcException ex)
@@ -159,6 +168,23 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
+        public async Task<EnrollCharactersReply> EnrollCharactersAsync(string code, string state, CancellationToken ct = default)
+        {
+            EnsureAuthenticated();
+            var headers = CreateAuthHeaders();
+            try
+            {
+                var reply = await _client.EnrollCharactersAsync(
+                    new EnrollCharactersRequest { Code= code, State= state },
+                    headers,
+                    cancellationToken: ct);
+                return reply;
+            }
+            catch (RpcException ex)
+            {
+                throw TranslateRpcException(ex);
+            }
+        }
         // ============================
         // GAME/DATA RELATED CALLS
         // ============================

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace LoggingWayPlugin.RPC
 {
@@ -14,10 +15,10 @@ namespace LoggingWayPlugin.RPC
 
     public class OperationState<T>
     {
-        public OperationStatus Status { get; private set; } = OperationStatus.Idle;
-        public T? Data { get; private set; }
-        public Exception? Error { get; private set; }
-        public DateTime? LastUpdated { get; private set; }
+        [JsonInclude] public OperationStatus Status { get; private set; } = OperationStatus.Idle;
+        [JsonInclude] public T? Data { get; private set; }
+        [JsonInclude] public Exception? Error { get; private set; }
+        [JsonInclude] public DateTime? LastUpdated { get; private set; }
 
         public bool IsLoading => Status == OperationStatus.Loading;
         public bool IsSuccess => Status == OperationStatus.Success;

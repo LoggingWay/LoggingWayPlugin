@@ -40,7 +40,6 @@ public sealed class LocalCallbackServer : IDisposable
 
             var code = query["code"];
             var state = query["state"];
-
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
                 throw new InvalidOperationException("Received callback without code or state parameters.");
 

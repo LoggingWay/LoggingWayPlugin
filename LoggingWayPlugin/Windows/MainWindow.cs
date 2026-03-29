@@ -46,16 +46,21 @@ public class MainWindow : Window, IDisposable
         this.configuration = plugin.Configuration;
         this.plugin = plugin;
         this.loggingwayManager = plugin.loggingwayManager;
-        mainView = new MainView(plugin.loggingwayManager);
+        mainView = new MainView(plugin.loggingwayManager,plugin.Configuration);
     }
 
-    public void Dispose() { }
+    public void Dispose() { mainView.Dispose(); }
 
     public override void Draw()
     {
         if (ImGui.BeginTabBar("MainWindow###111dadadadad"))
         {
             DrawMain();
+            if (loggingwayManager.LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                ImGui.EndTabBar();
+                return;
+            }
             DrawCharacters(mainView.Characters);
             DrawEncounterBrowser(mainView.Encounters);
             DrawLeaderboardBrowser(mainView.Leaderboard);
@@ -150,6 +155,11 @@ public class MainWindow : Window, IDisposable
             case OperationStatus.Error:
                 ImGui.TextColored(new Vector4(1, 0, 0, 1), $"Error: {characters.Error?.Message ?? "Unknown error"}");
                 break;
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Add characters via XIVAuth"))
+        {
+            _ = loggingwayManager.StartCharacterEnrollAsync();
         }
 
         // Character list

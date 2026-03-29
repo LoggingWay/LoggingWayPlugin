@@ -6,7 +6,7 @@ using System.Text;
 
 namespace LoggingWayPlugin.Windows
 {
-    internal class MainView
+    internal class MainView : IDisposable
     {
         public OperationState<IReadOnlyList<Character>> Characters { get; } = new();
         public OperationState<IReadOnlyList<Encounter>> Encounters { get; } = new();
@@ -15,10 +15,19 @@ namespace LoggingWayPlugin.Windows
         public OperationState<IReadOnlyList<LeaderBoardEntry>> Leaderboard { get; } = new();
 
         private readonly LoggingwayManager loggingwayManager;
-
-        public MainView(LoggingwayManager manager)
+        private Configuration configuration;
+        public MainView(LoggingwayManager manager,Configuration config)
         {
             loggingwayManager = manager;
+            configuration = config;//only preserve successfull results
+            if (configuration.Characters != null && configuration.Characters.Status == OperationStatus.Success)
+            {
+                Characters = configuration.Characters;
+            }
+            if (configuration.Encounters != null && configuration.Encounters.Status == OperationStatus.Success)
+            {
+                Encounters = configuration.Encounters;
+            }
         }
 
         public async void RefreshCharacters()
@@ -82,6 +91,12 @@ namespace LoggingWayPlugin.Windows
             {
                 state.SetError(ex);
             }
+        }
+
+        public void Dispose()
+        {
+            configuration.Characters = Characters;
+            configuration.Encounters = Encounters;
         }
     }
 }

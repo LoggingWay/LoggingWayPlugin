@@ -1,3 +1,4 @@
+using Dalamud.Interface.ImGuiNotification;
 using LoggingWayPlugin;
 using LoggingWayPlugin.Proto;
 using System;
@@ -62,6 +63,39 @@ namespace LoggingWayPlugin.RPC
                 LoginState = LoggingwayLoginState.LoggingError;
                 LoginException = ex.Message;
                 Service.Log.Error($"Login error: {ex.Message}");
+            }
+        }
+        //For refresh purpose, must already be logged in,must be used with the same account
+        public async Task StartCharacterEnrollAsync(CancellationToken ct = default)
+        {
+            LoginException = string.Empty;
+            try
+            {
+                var redirectUri = await _clientWrapper.GetXivAuthRedirectAsync(ct);
+
+                OpenBrowser(redirectUri);
+
+                var (code, state) = await LocalCallbackServer.Instance.WaitForCallbackAsync(ct);
+                await _clientWrapper.EnrollCharactersAsync(code, state, ct);
+                Service.NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
+                {
+                    Type = NotificationType.Success,
+                    Content = "Character enrollment success, press the refresh button to confirm changes",
+                });
+
+            }
+            catch (OperationCanceledException)
+            {
+                Service.Log.Warning("Enroll procedure was cancelled.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Service.Log.Warning($"Callback listener already active: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                LoginException = ex.Message;
+                Service.Log.Error($"Enroll error: {ex.Message}");
             }
         }
 
