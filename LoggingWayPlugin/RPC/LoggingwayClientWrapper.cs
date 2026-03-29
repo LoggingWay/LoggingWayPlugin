@@ -128,12 +128,7 @@ namespace LoggingWayPlugin.RPC
         private void SessionRefreshSync()
         {
             //EnsureAuthenticated();
-            if (_channel.State != ConnectivityState.Ready)
-            {
-                _sessionID = string.Empty;
-                _sessionExpirationDate = DateTime.MinValue;
-                return;//dont hang up if the server isn't even reachable
-            }
+            Service.Log.Debug("Refreshing session...");
             var headers = CreateAuthHeaders();
             try
             {
@@ -145,7 +140,21 @@ namespace LoggingWayPlugin.RPC
             }
             catch (RpcException ex)
             {
-                throw TranslateRpcException(ex);
+                if (ex.StatusCode == StatusCode.Unauthenticated)
+                {
+                    _sessionID = string.Empty;
+                    _sessionExpirationDate = DateTime.MinValue;
+                    Service.NotificationManager.AddNotification(new Notification
+                    {
+                        Title = "LoggingWay",
+                        Content = "Your session has expired, You will need to log in again",//TODO: move this to the TranslateRpcException method so that it's dupplicated for common errors types
+                        Type = NotificationType.Warning
+                    });
+                }
+                else
+                {
+                    throw TranslateRpcException(ex);
+                }
             }
         }
 
