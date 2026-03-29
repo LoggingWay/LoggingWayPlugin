@@ -4,6 +4,7 @@ using Grpc.Net.Client;
 using LoggingWayPlugin.Proto;
 using LoggingWayPlugin.Providers;
 using LoggingWayPlugin.RPC;
+using LoggingWayPlugin.Windows;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ using static LoggingWayPlugin.Parsers.DamageParser;
 
 namespace LoggingWayPlugin.Parsers
 {
-    public class LoggingParser : IDisposable,IParser
+    public class LoggingParser : IDisposable
     {
         public IProvider _provider;
         private Configuration _config;
@@ -59,7 +60,7 @@ namespace LoggingWayPlugin.Parsers
             {
                 _eventQueue.Enqueue(combatEvent);//enqueue the encounter end event so it gets included in the submission
                 bool clear = combatEvent.EncounterEnd.Reason == EncounterEndKind.Clear ? true : false;
-                EndEncounter(clear);
+                EndEncounter(clear,combatEvent.EncounterEnd.CfcId);
             }
             if (encounterActive) //event can come through outside of encounters, which will throw an error either null writer or writing to a disposed stream
             {
@@ -69,7 +70,7 @@ namespace LoggingWayPlugin.Parsers
 
         }
 
-        private void SubmitQueue()
+        private void SubmitQueue(uint cfcid)
         {
             try
             {
@@ -77,8 +78,8 @@ namespace LoggingWayPlugin.Parsers
                  {
 
                      var eventsToSubmit = _eventQueue.AsEnumerable();
-                     await _loggingwayManager.SubmitEncounter(eventsToSubmit);
-
+                     var reply = await _loggingwayManager.SubmitEncounter(eventsToSubmit,cfcid);
+                     Service.ChatGui.Print($"[LoggingWay]Encounter Submitted at {UIHelpers.FormatUnixTime(reply.QueuedAt)}, Job ID:{reply.Jobid}");
 
                  });
                 if (_config.SendChatNotificationsOnUpload)
@@ -107,7 +108,7 @@ namespace LoggingWayPlugin.Parsers
             Service.Log.Verbose($"Encounter {encounterId} started.");
         }
 
-        public void EndEncounter(bool clear)
+        public void EndEncounter(bool clear,uint cfcid)
         {
             if (!encounterActive) {
                 Service.Log.Error("End encounter event received but no encounter is active");//this might never be possible, have to investigate client state after a dc->reconnect
@@ -118,7 +119,7 @@ namespace LoggingWayPlugin.Parsers
             encounterEndTime = DateTime.Now;
             if (clear)
             {
-                SubmitQueue();
+                SubmitQueue(cfcid);
             }
             else
             {

@@ -11,7 +11,7 @@ using System.Timers;
 
 namespace LoggingWayPlugin.Parsers
 {
-    public class DamageParser : IDisposable,IParser
+    public class DamageParser : IDisposable
     {
         public record CombattantInfo
         {

@@ -92,7 +92,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.Log.Verbose($"Encounter end:{e}");
         inEncounter = false;
         currentCombatantIds.Clear();
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe } });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe,CfcId = currentCfcId } });
     }
 
     private void OnEncounterEndComplete(object? sender, ushort e)
@@ -100,7 +100,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.Log.Verbose($"Encounter end:{e}");
         inEncounter = false;
         currentCombatantIds.Clear();
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear, CfcId = currentCfcId } });
     }
 
     private unsafe void ProcessPacketActionEffectDetour(

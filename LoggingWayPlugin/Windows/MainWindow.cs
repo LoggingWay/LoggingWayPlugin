@@ -242,7 +242,7 @@ public class MainWindow : Window, IDisposable
             {
                 var enc = encounters.Data[i];
                 bool isSelected = i == _selectedIdx;
-                if (ImGui.Selectable($"{UIHelpers.CfcIdToCfcName(enc.ZoneId)} ({UIHelpers.FormatUnixTime(enc.UploadedAt)})", isSelected))
+                if (ImGui.Selectable($"{UIHelpers.CfcIdToCfcName(enc.CfcId)} ({UIHelpers.FormatUnixTime(enc.UploadedAt)})", isSelected))
                 {
                     _selectedIdx = i;
                     mainView.FindEncounterBreakdown(enc.EncounterId);

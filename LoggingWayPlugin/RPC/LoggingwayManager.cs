@@ -20,14 +20,14 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
-        public async Task<uint> SubmitEncounter(IEnumerable<CombatEvent> events)
+        public async Task<NewEncounterReply> SubmitEncounter(IEnumerable<CombatEvent> events,uint cfcid)
         {
             if (LoginState != LoggingwayLoginState.LoggedIn)
             {
                 Service.Log.Warning("Cannot submit combat events when not logged in.");
                 throw new InvalidOperationException("Not logged in");
             }
-            return await _clientWrapper.EncounterIngestAsync(events);
+            return await _clientWrapper.EncounterIngestAsync(events,cfcid);
         }
         public async Task StartLoginProcedureAsync(CancellationToken ct = default)
         {

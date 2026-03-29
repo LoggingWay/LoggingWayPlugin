@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Utility;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -28,7 +29,21 @@ namespace LoggingWayPlugin.RPC
             _configuration = config;
             _sessionID = config.LastSessionId;
             _sessionExpirationDate = config.SessionExpirationDate;
-
+            if (!HasSession)
+            {
+                Service.NotificationManager.AddNotification(new Notification
+                {
+                    Title = "LoggingWay",
+                    Content = "Your session has expired, please log in again",
+                    Type = NotificationType.Warning
+                });
+                _sessionID = string.Empty;
+                _sessionExpirationDate = DateTime.MinValue;
+            }
+            else
+            {
+                SessionRefreshSync();
+            }
         }
 
         public void Dispose()
@@ -99,6 +114,32 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
+        //fuck it I'll figure it out later
+        //ONLY USE THIS IN THE CONSTRUCTOR
+        private void SessionRefreshSync()
+        {
+            //EnsureAuthenticated();
+            if (_channel.State != ConnectivityState.Ready)
+            {
+                _sessionID = string.Empty;
+                _sessionExpirationDate = DateTime.MinValue;
+                return;//dont hang up if the server isn't even reachable
+            }
+            var headers = CreateAuthHeaders();
+            try
+            {
+                var reply = _client.SessionRefresh(
+                    new SessionRefreshRequest(),
+                    headers,
+                    cancellationToken: CancellationToken.None);
+                StoreSessionID(reply.SessionID);
+            }
+            catch (RpcException ex)
+            {
+                throw TranslateRpcException(ex);
+            }
+        }
+
         public async Task Logout(CancellationToken ct = default)
         {
             EnsureAuthenticated();
@@ -121,17 +162,17 @@ namespace LoggingWayPlugin.RPC
         // ============================
         // GAME/DATA RELATED CALLS
         // ============================
-        public async Task<uint> EncounterIngestAsync(IEnumerable<CombatEvent> events, CancellationToken ct = default)
+        public async Task<NewEncounterReply> EncounterIngestAsync(IEnumerable<CombatEvent> events, uint cfcid, CancellationToken ct = default)
         {
             EnsureAuthenticated();
             var headers = CreateAuthHeaders();
             try
             {
                 var reply = await _client.EncounterIngestAsync(
-                    new NewEncounterRequest { Events = { events } },
+                    new NewEncounterRequest { Events = { events }, CfcId = cfcid },
                     headers,
                     cancellationToken: ct);
-                return reply.Code;
+                return reply;
             }
             catch (RpcException ex)
             {
@@ -158,14 +199,14 @@ namespace LoggingWayPlugin.RPC
         }
 
         //if zoneid is 0 it will return 20 encounters across all zones, otherwise it will filter by the provided zoneid
-        public async Task<GetMyEncountersReply> GetMyEncounters(uint zoneid,CancellationToken ct = default)
+        public async Task<GetMyEncountersReply> GetMyEncounters(uint cfcid,CancellationToken ct = default)
         {
             EnsureAuthenticated();
             var headers = CreateAuthHeaders();
             try
             {
                 var reply = await _client.GetMyEncountersAsync(
-                    new GetMyEncountersRequest() { ZoneId = zoneid },
+                    new GetMyEncountersRequest() { CfcId = cfcid },
                     headers,
                     cancellationToken: ct);
                 return reply;
@@ -194,14 +235,14 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
-        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneid,CancellationToken ct = default)
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint cfcid,CancellationToken ct = default)
         {
             EnsureAuthenticated();
             var headers = CreateAuthHeaders();
             try
             {
                 var reply = await _client.GetLeaderBoardAsync(
-                    new GetLeaderBoardRequest() { ZoneId = zoneid },
+                    new GetLeaderBoardRequest() { CfcId = cfcid },
                     headers,
                     cancellationToken: ct);
                 return reply;
@@ -212,14 +253,14 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
-        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint zoneid,uint jobid,CancellationToken ct = default)
+        public async Task<GetLeaderBoardReply> GetLeaderBoard(uint cfcid,uint jobid,CancellationToken ct = default)
         {
             EnsureAuthenticated();
             var headers = CreateAuthHeaders();
             try
             {
                 var reply = await _client.GetLeaderBoardAsync(
-                    new GetLeaderBoardRequest() { ZoneId = zoneid, JobId = jobid },
+                    new GetLeaderBoardRequest() { CfcId = cfcid, JobId = jobid },
                     headers,
                     cancellationToken: ct);
                 return reply;
@@ -237,7 +278,7 @@ namespace LoggingWayPlugin.RPC
         private void StoreSessionID(string sessionID)
         {
             _sessionID = sessionID;
-            _sessionExpirationDate = DateTime.UtcNow.AddDays(7);//session is valid for 7 days serverside
+            _sessionExpirationDate = DateTime.UtcNow.AddDays(1);//session is valid for 24 hours serverside
             _configuration.LastSessionId = sessionID;
             _configuration.SessionExpirationDate = _sessionExpirationDate;
             _configuration.Save();
@@ -253,7 +294,7 @@ namespace LoggingWayPlugin.RPC
                 _configuration.LastSessionId = "";
                 throw new InvalidOperationException("Session has expired. Please log in again.");
             }
-            if (DateTime.UtcNow >= _sessionExpirationDate.AddDays(-1))//if session is expiring in less than 1 day
+            if (DateTime.UtcNow >= _sessionExpirationDate.AddHours(1))//if session is expiring in less than 1 hour
             {
                 SessionRefreshAsync();
             }
