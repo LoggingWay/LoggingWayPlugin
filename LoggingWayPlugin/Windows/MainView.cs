@@ -97,6 +97,7 @@ namespace LoggingWayPlugin.Windows
         {
             configuration.Characters = Characters;
             configuration.Encounters = Encounters;
+            configuration.Save();
         }
     }
 }

@@ -1,10 +1,13 @@
+using LoggingWayPlugin.Proto;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Text.Json.Serialization;
 
 namespace LoggingWayPlugin.RPC
 {
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum OperationStatus
     {
         Idle,
@@ -15,14 +18,14 @@ namespace LoggingWayPlugin.RPC
 
     public class OperationState<T>
     {
-        [JsonInclude] public OperationStatus Status { get; private set; } = OperationStatus.Idle;
-        [JsonInclude] public T? Data { get; private set; }
-        [JsonInclude] public Exception? Error { get; private set; }
-        [JsonInclude] public DateTime? LastUpdated { get; private set; }
+        [JsonProperty] public OperationStatus Status { get; private set; } = OperationStatus.Idle;
+        [JsonProperty] public T? Data { get; private set; }
+        [JsonIgnore] public Exception? Error { get; private set; }
+        [JsonProperty] public DateTime? LastUpdated { get; private set; }
 
-        public bool IsLoading => Status == OperationStatus.Loading;
-        public bool IsSuccess => Status == OperationStatus.Success;
-        public bool IsError => Status == OperationStatus.Error;
+        [JsonIgnore] public bool IsLoading => Status == OperationStatus.Loading;
+        [JsonIgnore] public bool IsSuccess => Status == OperationStatus.Success;
+        [JsonIgnore] public bool IsError => Status == OperationStatus.Error;
 
         internal void SetLoading()
         {

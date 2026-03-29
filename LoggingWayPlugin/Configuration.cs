@@ -2,6 +2,7 @@ using Dalamud.Configuration;
 using LoggingWayPlugin.Proto;
 using LoggingWayPlugin.RPC;
 using System;
+using System.Text.Json.Serialization;
 
 namespace LoggingWayPlugin;
 
@@ -66,6 +67,8 @@ public class Configuration : IPluginConfiguration
     public bool IsConfigWindowMovable { get; set; } = true;
     public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 
+    
+    // add one per T you actually use
     // The below exists just to make saving less cumbersome
     public void Save()
     {
