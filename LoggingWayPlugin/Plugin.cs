@@ -42,7 +42,7 @@ public sealed class Plugin : IDalamudPlugin
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Save();
         Service.Log.Verbose("Initializing Loggingway client...");
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://localhost:7148", Configuration));
+        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl:5001", Configuration));
 
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
         packetHandlersHooks = new PacketHandlersHooks(Configuration);
