@@ -85,7 +85,7 @@ namespace LoggingWayPlugin.Windows
 
         private static char SpinnerFrame(float t) => "|/-\\"[(int)(t * 4) % 4];
 
-        public new void Dispose()
+        public void Dispose()
         {
             view.Dispose();
         }
