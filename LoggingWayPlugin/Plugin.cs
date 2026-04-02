@@ -27,7 +27,7 @@ public sealed class Plugin : IDalamudPlugin
     public readonly WindowSystem WindowSystem = new("LoggingWayPlugin");
     private ConfigWindow ConfigWindow { get; init; }
     private MainWindow MainWindow { get; init; }
-
+    private ResultWindow ResultWindow { get; init; }
     private ParsingWindow ParsingWindow { get; init; }
 
     public readonly PacketHandlersHooks packetHandlersHooks;
@@ -42,8 +42,8 @@ public sealed class Plugin : IDalamudPlugin
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Save();
         Service.Log.Verbose("Initializing Loggingway client...");
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl:5001", Configuration));
-
+        //loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("https://loggingway.nl:5001", Configuration));
+        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:5003", Configuration));
         Service.Log.Verbose("Initializing Packet Handlers hooks...");
         packetHandlersHooks = new PacketHandlersHooks(Configuration);
         Service.Log.Verbose("Initializing Parsing module...");
@@ -56,10 +56,12 @@ public sealed class Plugin : IDalamudPlugin
         ParsingWindow = new ParsingWindow(parser, Configuration);
 
         ConfigWindow = new ConfigWindow(this);
-        loggingParser = new LoggingParser(packetHandlersHooks, Configuration, loggingwayManager);
+        ResultWindow = new ResultWindow(loggingwayManager,Configuration);
+        loggingParser = new LoggingParser(packetHandlersHooks, Configuration, loggingwayManager,ResultWindow.view);
         WindowSystem.AddWindow(ConfigWindow);
         WindowSystem.AddWindow(MainWindow);
         WindowSystem.AddWindow(ParsingWindow);
+        WindowSystem.AddWindow(ResultWindow);
         Service.CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
             HelpMessage = "Display the main UI of LoggingWay"
