@@ -30,6 +30,16 @@ namespace LoggingWayPlugin.RPC
             }
             return await _clientWrapper.EncounterIngestAsync(events,cfcid);
         }
+
+        public async Task<PollJobResultReply> PollJobResult(string jobId, CancellationToken ct = default)
+        {
+            if (LoginState != LoggingwayLoginState.LoggedIn)
+            {
+                Service.Log.Warning("Cannot poll job result when not logged in.");
+                throw new InvalidOperationException("Not logged in");
+            }
+            return await _clientWrapper.PollJobResultAsync(jobId, ct);
+        }
         public async Task StartLoginProcedureAsync(CancellationToken ct = default)
         {
             LoginState = LoggingwayLoginState.LoggingIn;

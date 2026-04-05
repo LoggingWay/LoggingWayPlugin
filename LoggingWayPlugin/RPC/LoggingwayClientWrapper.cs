@@ -215,6 +215,24 @@ namespace LoggingWayPlugin.RPC
             }
         }
 
+        public async Task<PollJobResultReply> PollJobResultAsync(string jobId, CancellationToken ct = default)
+        {
+            EnsureAuthenticated();
+            var headers = CreateAuthHeaders();
+            try
+            {
+                var reply = await _client.PollJobResultAsync(
+                    new PollJobResultRequest { JobId = jobId },
+                    headers,
+                    cancellationToken: ct);
+                return reply;
+            }
+            catch (RpcException ex)
+            {
+                throw TranslateRpcException(ex);
+            }
+        }
+
         public async Task<GetMyCharactersReply> GetMyCharacters(CancellationToken ct = default)
         {
             EnsureAuthenticated();

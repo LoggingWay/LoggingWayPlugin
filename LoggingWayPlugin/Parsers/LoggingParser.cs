@@ -19,6 +19,7 @@ namespace LoggingWayPlugin.Parsers
     {
         public IProvider _provider;
         private Configuration _config;
+        private Plugin _plugin;
 
         public DateTime encounterStartTime { get; private set; }
         public DateTime encounterEndTime { get; private set; }
@@ -33,11 +34,13 @@ namespace LoggingWayPlugin.Parsers
         private CodedOutputStream? _codedOutputStream;*/ //this should be moved to a proper LogManager that can do things like file cycling/schedulling
         private readonly CancellationTokenSource _cts = new();
         private LoggingwayManager _loggingwayManager;
+        private UploadView _uploadView;
         private ConcurrentQueue<Proto.CombatEvent> _eventQueue = new ConcurrentQueue<Proto.CombatEvent>();
-        public LoggingParser(IProvider provider, Configuration config,LoggingwayManager loggingwayManager)
+        public LoggingParser(IProvider provider, Configuration config,LoggingwayManager loggingwayManager,UploadView uploadView)
         {
             _provider = provider;
             _config = config;
+            _uploadView = uploadView;
             _provider.OnNewCombatEvent += HandleNewCombatEvent;
             encounterTimeoutMs = config.EncounterEndDelayMs;
             _loggingwayManager = loggingwayManager;
@@ -80,6 +83,7 @@ namespace LoggingWayPlugin.Parsers
                      var eventsToSubmit = _eventQueue.AsEnumerable();
                      var reply = await _loggingwayManager.SubmitEncounter(eventsToSubmit,cfcid);
                      Service.ChatGui.Print($"[LoggingWay]Encounter Submitted at {UIHelpers.FormatUnixTime(reply.QueuedAt)}, Job ID:{reply.Jobid}");
+                     _uploadView.BeginPolling(reply.Jobid);
 
                  });
                 if (_config.SendChatNotificationsOnUpload)

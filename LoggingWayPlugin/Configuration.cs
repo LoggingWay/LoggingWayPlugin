@@ -52,9 +52,11 @@ public class Configuration : IPluginConfiguration
 
 
     // Loggingway related settings
-    public bool EnableLoggingwayIntegration { get; set; } = false;
+    public bool EnableLoggingwayIntegration { get; set; } = true;
     public bool SendReminderOnZoningIntoDuty { get; set; } = true;
     public bool SendChatNotificationsOnUpload { get; set; } = true;
+
+    public bool AutoOpenResultWindow { get; set; } = true;
 
     // Not user facing stuff
     public string LastSessionId { get; set; } = string.Empty;
@@ -65,7 +67,6 @@ public class Configuration : IPluginConfiguration
     //Debug values
     public bool OutputEventsToLog { get; set; } = false;
     public bool IsConfigWindowMovable { get; set; } = true;
-    public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 
     
     // add one per T you actually use

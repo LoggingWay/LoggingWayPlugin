@@ -484,6 +484,8 @@ public class PacketHandlersHooks : IDisposable,IProvider
         if (Service.ObjectTable.LocalPlayer?.GameObjectId != combattant->GetGameObjectId().Id)
             return;
         var State = UIState.Instance()->PlayerState;
+        var Weapon_Data = (ushort*)((IntPtr)InventoryManager.Instance() + 9360);
+        var Weapon_Damage = Weapon_Data[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 21 : 20] + Weapon_Data[33];
         //for now we only log the local player
         OnNewCombatEvent?.Invoke(new Proto.CombatEvent
         {
@@ -495,7 +497,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 BaseId = combattant->BaseId,
                 Objectkind = (Proto.ObjectKind)combattant->ObjectKind
             },
-            PlayerJoin = new Proto.PlayerEnterCombat
+            PlayerJoin = new Proto.PlayerEnterCombat//signs are all messed up here, could use some cleanup because there are unecessary uints casts
             {
                Name = combattant->NameString,
                ContentId = combattant->ContentId,
@@ -504,6 +506,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                JobId = combattant->ClassJob,
                 Level = combattant->Level,
                 AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
+                WeaponDamage = (uint)Weapon_Damage,
                 Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
                 Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
                 Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
