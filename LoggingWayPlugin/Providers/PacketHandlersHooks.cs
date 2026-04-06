@@ -1,9 +1,12 @@
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Hooking;
+using Dalamud.Plugin.Services;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Common.Math;
@@ -218,13 +221,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         BaseId = targetBaseId ?? 0,
                         Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        LocalSnapshot = new Proto.LocalPlayerSnapshot{AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
-                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
-                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
-                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
-                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
-                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
-                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                        LocalSnapshot = CreateLocalSnapshot(),
                         DamageTaken = new Proto.DamageTakenData
                         {
                             Amount = amount,
@@ -259,15 +256,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                             BaseId = targetBaseId ?? 0,
                             Objectkind = (Proto.ObjectKind)(targetObjectKind ?? ObjectKind.None)
                         },
-                        LocalSnapshot = new Proto.LocalPlayerSnapshot
-                        {
-                            AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
-                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
-                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
-                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
-                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
-                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
-                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                        LocalSnapshot = CreateLocalSnapshot(),
                         Healed = new Proto.HealedData
                         {
                             Amount = amount,
@@ -319,15 +308,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                         BaseId = sourceBaseId,
                         Objectkind = (Proto.ObjectKind)sourceObjectKind
                     },
-                    LocalSnapshot = new Proto.LocalPlayerSnapshot
-                    {
-                        AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
-                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
-                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
-                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
-                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
-                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
-                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                    LocalSnapshot = CreateLocalSnapshot(),
                     Dot = new Proto.DoTData
                     {
                         Amount = param2
@@ -453,15 +434,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     BaseId = sourceBaseId,
                     Objectkind = (Proto.ObjectKind)sourceObjectKind
                 },
-                LocalSnapshot = new Proto.LocalPlayerSnapshot
-                {
-                    AttackPower = (uint)State.Attributes[GameConstants.Casters.Contains(State.CurrentClassJobId) ? 33 : 20],
-                Skillspeed = (uint)State.Attributes[(int)PlayerAttribute.SkillSpeed],
-                Spellspeed = (uint)State.Attributes[(int)PlayerAttribute.SpellSpeed],
-                Tenacity = (uint)State.Attributes[(int)PlayerAttribute.Tenacity],
-                Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
-                CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
-                DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],},
+                LocalSnapshot = CreateLocalSnapshot(),
                 StatusEffect = new Proto.StatusEffectData
                 {
 
@@ -513,10 +486,100 @@ public class PacketHandlersHooks : IDisposable,IProvider
                 Determination = (uint)State.Attributes[(int)PlayerAttribute.Determination],
                 CriticalHit = (uint)State.Attributes[(int)PlayerAttribute.CriticalHit],
                 DirectHit = (uint)State.Attributes[(int)PlayerAttribute.DirectHitRate],
-
             }
         });
+    }
 
+    public unsafe Proto.LocalPlayerSnapshot CreateLocalSnapshot()
+    {
+
+        var state = UIState.Instance()->PlayerState;
+        var snapshot = new Proto.LocalPlayerSnapshot
+        {
+            AttackPower = (uint)state.Attributes[GameConstants.Casters.Contains(state.CurrentClassJobId) ? 33 : 20],
+            Skillspeed = (uint)state.Attributes[(int)PlayerAttribute.SkillSpeed],
+            Spellspeed = (uint)state.Attributes[(int)PlayerAttribute.SpellSpeed],
+            Tenacity = (uint)state.Attributes[(int)PlayerAttribute.Tenacity],
+            Determination = (uint)state.Attributes[(int)PlayerAttribute.Determination],
+            CriticalHit = (uint)state.Attributes[(int)PlayerAttribute.CriticalHit],
+            DirectHit = (uint)state.Attributes[(int)PlayerAttribute.DirectHitRate],
+        };
+        var jobId =  Utils.GetJobIdForPlayer(Service.ObjectTable.LocalPlayer?.GameObjectId);
+        var gauge = jobId switch
+        {
+            JobId.AST => (JobGaugeBase)Service.Gauges.Get<ASTGauge>(),
+            JobId.BRD => Service.Gauges.Get<BRDGauge>(),
+            JobId.BLM => Service.Gauges.Get<BLMGauge>(),
+            JobId.DNC => Service.Gauges.Get<DNCGauge>(),
+            JobId.DRK => Service.Gauges.Get<DRKGauge>(),
+            JobId.DRG => Service.Gauges.Get<DRGGauge>(),
+            JobId.GNB => Service.Gauges.Get<GNBGauge>(),
+            JobId.MCH => Service.Gauges.Get<MCHGauge>(),
+            JobId.MNK => Service.Gauges.Get<MNKGauge>(),
+            JobId.NIN => Service.Gauges.Get<NINGauge>(),
+            JobId.PLD => Service.Gauges.Get<PLDGauge>(),
+            JobId.PCT => Service.Gauges.Get<PCTGauge>(),
+            JobId.RPR => Service.Gauges.Get<RPRGauge>(),
+            JobId.RDM => Service.Gauges.Get<RDMGauge>(),
+            JobId.SGE => Service.Gauges.Get<SGEGauge>(),
+            JobId.SAM => Service.Gauges.Get<SAMGauge>(),
+            JobId.SCH => Service.Gauges.Get<SCHGauge>(),
+            JobId.SMN => Service.Gauges.Get<SMNGauge>(),
+            JobId.VPR => Service.Gauges.Get<VPRGauge>(),
+            JobId.WAR => Service.Gauges.Get<WARGauge>(),
+            JobId.WHM => Service.Gauges.Get<WHMGauge>(),
+            JobId.ADV => null,
+            JobId.GLA => null,
+            JobId.PGL => null,
+            JobId.MRD => null,
+            JobId.LNC => null,
+            JobId.ARC => null,
+            JobId.CNJ => null,
+            JobId.THM => null,
+            JobId.CRP => null,
+            JobId.BSM => null,
+            JobId.ARM => null,
+            JobId.GSM => null,
+            JobId.LTW => null,
+            JobId.WVR => null,
+            JobId.ALC => null,
+            JobId.CUL => null,
+            JobId.MIN => null,
+            JobId.BTN => null,
+            JobId.FSH => null,
+            JobId.ACN => null,
+            JobId.ROG => null,
+            JobId.BLU => null,
+            _ => null,
+        };
+        if (gauge == null)
+            return snapshot;
+        switch (gauge)
+        {
+            case ASTGauge g: snapshot.Astrologian = ProtoMapper.MapAstrologian(g); break;
+            case BRDGauge g: snapshot.Bard = ProtoMapper.MapBard(g); break;
+            case BLMGauge g: snapshot.BlackMage = ProtoMapper.MapBlackMage(g); break;
+            case DNCGauge g: snapshot.Dancer = ProtoMapper.MapDancer(g); break;
+            case DRKGauge g: snapshot.DarkKnight = ProtoMapper.MapDarkKnight(g); break;
+            case DRGGauge g: snapshot.Dragoon = ProtoMapper.MapDragoon(g); break;
+            case GNBGauge g: snapshot.Gunbreaker = ProtoMapper.MapGunbreaker(g); break;
+            case MCHGauge g: snapshot.Machinist = ProtoMapper.MapMachinist(g); break;
+            case MNKGauge g: snapshot.Monk = ProtoMapper.MapMonk(g); break;
+            case NINGauge g: snapshot.Ninja = ProtoMapper.MapNinja(g); break;
+            case PLDGauge g: snapshot.Paladin = ProtoMapper.MapPaladin(g); break;
+            case PCTGauge g: snapshot.Pictomancer = ProtoMapper.MapPictomancer(g); break;
+            case RPRGauge g: snapshot.Reaper = ProtoMapper.MapReaper(g); break;
+            case RDMGauge g: snapshot.RedMage = ProtoMapper.MapRedMage(g); break;
+            case SGEGauge g: snapshot.Sage = ProtoMapper.MapSage(g); break;
+            case SAMGauge g: snapshot.Samurai = ProtoMapper.MapSamurai(g); break;
+            case SCHGauge g: snapshot.Scholar = ProtoMapper.MapScholar(g); break;
+            case SMNGauge g: snapshot.Summoner = ProtoMapper.MapSummoner(g); break;
+            case VPRGauge g: snapshot.Viper = ProtoMapper.MapViper(g); break;
+            case WARGauge g: snapshot.Warrior = ProtoMapper.MapWarrior(g); break;
+            case WHMGauge g: snapshot.WhiteMage = ProtoMapper.MapWhiteMage(g); break;
+            default: throw new ArgumentOutOfRangeException(nameof(gauge), gauge.GetType().Name, "Unhandled job gauge type");
+        }
+       return snapshot;
     }
     public void Dispose()
     {

@@ -1,3 +1,4 @@
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -30,6 +31,7 @@ namespace LoggingWayPlugin
         [PluginService] public static IGameGui GameGui { get; private set; } = null!;
         [PluginService] public static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
         [PluginService] public static INotificationManager NotificationManager { get; private set; } = null!;
+        [PluginService] public static IJobGauges Gauges { get; private set; } = null!;
         public static void Initialize(IDalamudPluginInterface pluginInterface)
             => pluginInterface.Create<Service>();
     }

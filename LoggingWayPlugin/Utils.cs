@@ -12,15 +12,16 @@ namespace LoggingWayPlugin
 {
     public static class Utils
     {
-        public static uint GetJobIdForPlayer(ulong? objectId)
+        public static Game.JobId GetJobIdForPlayer(ulong? objectId)
         {
             if (objectId == null)
                 return 0;
             if (Service.ObjectTable.SearchById(objectId.Value) is not IPlayerCharacter p)
                 return 0;
-          return p.ClassJob.RowId;
+          return (Game.JobId)p.ClassJob.RowId;
         }
 
+        
         public static string GetNameOfGameObject(ulong? objectId)
         {
             if(objectId == null)
@@ -36,4 +37,5 @@ namespace LoggingWayPlugin
 
         
     }
+    
 }
