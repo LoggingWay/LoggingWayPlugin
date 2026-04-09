@@ -12,8 +12,8 @@ namespace LoggingWayPlugin.RPC
 {             
     public sealed class LoggingwayClientWrapper : IDisposable
     {
-        private readonly GrpcChannel _channel;
-        private readonly Loggingway.LoggingwayClient _client;
+        private GrpcChannel _channel;
+        private Loggingway.LoggingwayClient _client;
         private Configuration _configuration;
 
         //sessionID is persisted in config,will add some secret later
@@ -42,10 +42,59 @@ namespace LoggingWayPlugin.RPC
             }
             else
             {
-                SessionRefreshSync();
+                try
+                {
+                    Task.Run(() => { SessionRefreshAsync(); });
+                }
+                catch (RpcException ex)
+                {
+                    if (ex.StatusCode == StatusCode.Unauthenticated)
+                    {
+                        _sessionID = string.Empty;
+                        _sessionExpirationDate = DateTime.MinValue;
+                        Service.NotificationManager.AddNotification(new Notification
+                        {
+                            Title = "LoggingWay",
+                            Content = "Your session has expired, please log in again",
+                            Type = NotificationType.Warning
+                        });
+                    }
+                    else if (ex.StatusCode == StatusCode.Unavailable)
+                    {
+                        Service.NotificationManager.AddNotification(new Notification
+                        {
+                            Title = "LoggingWay",
+                            Content = "Unable to connect to LoggingWay server, please check your connection and try again",
+                            Type = NotificationType.Error
+                        });
+                    }
+                    else
+                    {
+                        Service.Log.Equals($"RPC Error while refreshing session on startup: {ex}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Service.NotificationManager.AddNotification(new Notification
+                    {
+                        Title = "LoggingWay",
+                        Content = "Unknown error refreshing session on startup:",
+                        Type = NotificationType.Error
+                    });
+                    Service.Log.Error($"Unknown Error while refreshing session on startup: {ex}");
+                }
             }
         }
 
+        public void ChangeEndpoint(string newEndpoint)
+        {
+            _channel.Dispose();
+            _channel = GrpcChannel.ForAddress(newEndpoint);
+            _client = new Loggingway.LoggingwayClient(_channel);
+            _sessionID = string.Empty;
+            _sessionExpirationDate = DateTime.MinValue;
+            Service.Log.Information($"LoggingWay gRPC endpoint changed to {newEndpoint}");
+        }
         public void Dispose()
         {
             _channel.Dispose();

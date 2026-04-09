@@ -56,6 +56,7 @@ public class Configuration : IPluginConfiguration
     public bool SendReminderOnZoningIntoDuty { get; set; } = true;
     public bool SendChatNotificationsOnUpload { get; set; } = true;
 
+    public string GrpcEndPoint { get; set; } = "https://loggingway.nl:5001";
     public bool AutoOpenResultWindow { get; set; } = true;
 
     // Not user facing stuff

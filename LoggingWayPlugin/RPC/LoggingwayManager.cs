@@ -224,6 +224,11 @@ namespace LoggingWayPlugin.RPC
             await _clientWrapper.Logout();
             LoginState = LoggingwayLoginState.NotLoggedIn;
         }
+
+        public void UpdateClient(string newEndpoint)
+        {
+            _clientWrapper.ChangeEndpoint(newEndpoint);
+        }
     }
 
     public enum LoggingwayLoginState

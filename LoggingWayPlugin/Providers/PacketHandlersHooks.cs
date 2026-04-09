@@ -46,6 +46,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
     public event NotifyNewCombatEvent? OnNewCombatEvent;
     private List<ulong> currentCombatantIds = [];
     private bool inEncounter = false;
+    private bool inDownTime = false;
     private uint currentCfcId = 0;
     private Configuration _config;
     public unsafe PacketHandlersHooks(Configuration config)
@@ -66,7 +67,29 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.DutyState.DutyCompleted += OnEncounterEndComplete;
         Service.ClientState.TerritoryChanged += OnTerritoryChange;
         Service.ClientState.CfPop += OnCfPop;
+        Service.Framework.Update += OnFrameworkUpdate;
+    }
 
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        if (!inEncounter)
+            return;
+        foreach (var Object in Service.ObjectTable)
+        {
+            if (Object is not IBattleChara p)
+                continue;
+            if (Object.SubKind >= 5 && p.IsTargetable && p.CurrentHp > 1)
+            {
+                if (inDownTime)
+                    {
+                    inDownTime = false;
+                    OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), DowntimeEnd = new Proto.DownTimeEnd { } });
+                }
+                return;
+            }
+            inDownTime = true;
+            OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), DowntimeBegin = new Proto.DownTimeBegin { } });
+        }
     }
 
     private void OnCfPop(Lumina.Excel.Sheets.ContentFinderCondition condition)

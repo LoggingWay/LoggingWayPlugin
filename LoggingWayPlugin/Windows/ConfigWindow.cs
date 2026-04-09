@@ -329,6 +329,15 @@ public class ConfigWindow : Window, IDisposable
             Service.ChatGui.Print("[Loggingway]SessionID cleared,restart the plugin");
             configuration.Save();
         }
+        var grpcpoint = configuration.GrpcEndPoint;
+        if (ImGui.InputText("gRPC Endpoint", ref grpcpoint, 200))
+        {
+            configuration.GrpcEndPoint = grpcpoint;
+            configuration.Save();
+            loggingwayManager.UpdateClient(configuration.GrpcEndPoint);
+        }
+        ImGui.SameLine();
+        ImGui.Text("Changing this will clear your session");
         ImGui.EndTabItem();
     }
 }
