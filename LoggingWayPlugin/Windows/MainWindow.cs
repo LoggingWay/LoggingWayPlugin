@@ -395,7 +395,7 @@ public class MainWindow : Window, IDisposable
         ImGui.Checkbox("Filter by job###FILJOBLGLEADER", ref _FilterByJob);
         foreach (var entry in mainView.Leaderboard.Data ?? Array.Empty<LeaderBoardEntry>())
         {
-            ImGui.Text($"{entry.Char.Name} - {UIHelpers.JobIdToClassJob(entry.Jobid)} - Pscore: {entry.Psccore:F1} - Rank: {entry.Rank}");
+            ImGui.Text($"{entry.Char?.Name ?? "Unknown"} - {UIHelpers.JobIdToClassJob(entry.Jobid)} - Pscore: {entry.Psccore:F1} - Rank: {entry.Rank}");
         }
         ImGui.EndTabItem();
     }

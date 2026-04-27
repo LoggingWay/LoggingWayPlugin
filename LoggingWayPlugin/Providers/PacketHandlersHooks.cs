@@ -74,6 +74,7 @@ public class PacketHandlersHooks : IDisposable,IProvider
     {
         if (!inEncounter)
             return;
+        bool hasTargetableEnemy = false;
         foreach (var Object in Service.ObjectTable)
         {
             if (Object is not IBattleChara p)
@@ -85,11 +86,14 @@ public class PacketHandlersHooks : IDisposable,IProvider
                     inDownTime = false;
                     OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), DowntimeEnd = new Proto.DownTimeEnd { } });
                 }
-                return;
+                hasTargetableEnemy = true;
+                break;
             }
+            if (!hasTargetableEnemy && !inDownTime) return;
             inDownTime = true;
             OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), DowntimeBegin = new Proto.DownTimeBegin { } });
         }
+        
     }
 
     private void OnCfPop(Lumina.Excel.Sheets.ContentFinderCondition condition)
