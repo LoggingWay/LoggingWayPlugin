@@ -40,17 +40,23 @@ public sealed class Plugin : IDalamudPlugin
     {
         Service.Initialize(PluginInterface);
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        Service.Log.Verbose("Initializing Loggingway client...");
-        loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper(Configuration.GrpcEndPoint, Configuration));
-        //loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:5003", Configuration));
-        Service.Log.Verbose("Initializing Packet Handlers hooks...");
-        packetHandlersHooks = new PacketHandlersHooks(Configuration);
-        Service.Log.Verbose("Initializing Parsing module...");
-        parser = new DamageParser(packetHandlersHooks, Configuration);
-        Service.Log.Verbose("Initializing Logging module...");
+        try
+        {
+            Service.Log.Verbose("Initializing Loggingway client...");
+            loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper(Configuration.GrpcEndPoint, Configuration));
+            //loggingwayManager = new LoggingwayManager(new LoggingwayClientWrapper("http://localhost:5003", Configuration));
+            Service.Log.Verbose("Initializing Packet Handlers hooks...");
+            packetHandlersHooks = new PacketHandlersHooks(Configuration);
+            Service.Log.Verbose("Initializing Parsing module...");
+            parser = new DamageParser(packetHandlersHooks, Configuration);
+            Service.Log.Verbose("Initializing Logging module...");
 
-        debugParser = new DebugParser(packetHandlersHooks,Configuration);
-
+            debugParser = new DebugParser(packetHandlersHooks, Configuration);
+        }
+        catch (Exception ex)
+        {
+                        Service.Log.Error($"Error during initialization: {ex}");
+        }
         MainWindow = new MainWindow(this);
         ParsingWindow = new ParsingWindow(parser, Configuration);
 

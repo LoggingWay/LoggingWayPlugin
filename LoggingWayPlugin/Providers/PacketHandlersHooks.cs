@@ -1,6 +1,7 @@
 using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.DutyState;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility.Signatures;
@@ -69,7 +70,6 @@ public class PacketHandlersHooks : IDisposable,IProvider
         Service.ClientState.CfPop += OnCfPop;
         Service.Framework.Update += OnFrameworkUpdate;
     }
-
     private void OnFrameworkUpdate(IFramework framework)
     {
         if (!inEncounter)
@@ -105,32 +105,32 @@ public class PacketHandlersHooks : IDisposable,IProvider
        currentCfcId = condition.RowId;
     }
 
-    private void OnTerritoryChange(ushort e)
+    private void OnTerritoryChange(uint obj)
     {   
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), ZoneChange = new Proto.ZoneChangeData { Territorytype = e} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), ZoneChange = new Proto.ZoneChangeData { Territorytype = obj } });
     }
 
-    private void OnEncounterStart(object? sender, ushort e)
+    private void OnEncounterStart(IDutyStateEventArgs args)
     {
-        Service.Log.Verbose($"Encounter start:{e}");
+        Service.Log.Verbose($"Encounter start:{args.TerritoryType}");
         inEncounter = true;
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = e, CfcId = currentCfcId} });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterStart = new Proto.EncounterStartData { Territorytype = args.TerritoryType.Value.RowId, CfcId = currentCfcId} });
     }
 
-    private void OnEncounterEndWipe(object? sender, ushort e)
+    private void OnEncounterEndWipe(IDutyStateEventArgs args)
     {
-        Service.Log.Verbose($"Encounter end:{e}");
+        Service.Log.Verbose($"Encounter end:{args.TerritoryType}");
         inEncounter = false;
         currentCombatantIds.Clear();
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e, Reason = Proto.EncounterEndKind.Wipe,CfcId = currentCfcId } });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = args.TerritoryType.Value.RowId, Reason = Proto.EncounterEndKind.Wipe,CfcId = currentCfcId } });
     }
 
-    private void OnEncounterEndComplete(object? sender, ushort e)
+    private void OnEncounterEndComplete(IDutyStateEventArgs args)
     {
-        Service.Log.Verbose($"Encounter end:{e}");
+        Service.Log.Verbose($"Encounter end:{args.TerritoryType}");
         inEncounter = false;
         currentCombatantIds.Clear();
-        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = e,Reason = Proto.EncounterEndKind.Clear, CfcId = currentCfcId } });
+        OnNewCombatEvent?.Invoke(new Proto.CombatEvent { TimestampEpochMs = DateTime.UtcNow.ToUnixTimeMilliseconds(), EncounterEnd = new Proto.EncounterEndData { Territorytype = args.TerritoryType.Value.RowId, Reason = Proto.EncounterEndKind.Clear, CfcId = currentCfcId } });
     }
 
     private unsafe void ProcessPacketActionEffectDetour(

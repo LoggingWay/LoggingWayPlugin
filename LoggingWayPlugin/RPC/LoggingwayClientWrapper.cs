@@ -154,7 +154,7 @@ namespace LoggingWayPlugin.RPC
         // ============================
         // SERVICE RELATED CALLS    
         // ============================
-        private async void SessionRefreshAsync(CancellationToken ct = default)
+        private async Task SessionRefreshAsync(CancellationToken ct = default)
         {
             EnsureAuthenticated();
             var headers = CreateAuthHeaders();
