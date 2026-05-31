@@ -38,8 +38,9 @@ namespace LoggingWayPlugin.Windows
         private async Task PollLoop(string jobId, CancellationToken ct)
         {
             State.SetPolling();
+            var backoff = TimeSpan.FromMilliseconds(500);
+            var maxBackoff = TimeSpan.FromSeconds(15);
 
-            // The server long-polls for 10s, then returns ready:false if the job isn't done. In that case we immediately retry until we get ready:true or an error/timeout.
             while (!ct.IsCancellationRequested)
             {
                 try
@@ -51,9 +52,10 @@ namespace LoggingWayPlugin.Windows
                         State.SetDone(result);
                         return;
                     }
-                    // Server returned ready:false (timed out its 10s wait) — retry immediately
+
+                    backoff = TimeSpan.FromMilliseconds(500);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
                     return;
                 }
@@ -62,6 +64,17 @@ namespace LoggingWayPlugin.Windows
                     State.SetFailed("Job expired or not found.");
                     return;
                 }
+                catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated
+                                                             or StatusCode.PermissionDenied)
+                {
+                    State.SetFailed(ex.Status.Detail);
+                    return;
+                }
+                catch (RpcException ex) when (IsTransient(ex.StatusCode))
+                {
+                    try { await Task.Delay(backoff, ct); } catch (OperationCanceledException) { return; }
+                    backoff = TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, maxBackoff.Ticks));
+                }
                 catch (Exception ex)
                 {
                     State.SetFailed(ex.Message);
@@ -69,6 +82,9 @@ namespace LoggingWayPlugin.Windows
                 }
             }
         }
+
+        static bool IsTransient(StatusCode c) =>
+            c is StatusCode.Unavailable or StatusCode.DeadlineExceeded;
 
         public void Dispose()
         {
