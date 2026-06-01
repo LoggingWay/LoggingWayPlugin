@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/14.0.1">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.0.0.6</Version>
+    <Version>0.0.0.7</Version>
       <ImplicitUsings>enable</ImplicitUsings>
       <Nullable>enable</Nullable>
       <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -45,7 +45,6 @@
             <HintPath>$(DalamudLibPath)Reloaded.Memory.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <PackageReference Update="DalamudPackager" Version="14.0.1" />
     </ItemGroup>
 
 
