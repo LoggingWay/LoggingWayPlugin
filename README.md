@@ -1,6 +1,9 @@
-# Foreword - Prevideo
-I intend to make a video showcasing the reasoning/motive behind this project in more detail, for testing reasons I must make the plugin available, I am aware that people outside of those I explicitly invite might stumble upon it, I can't stop you from joining, but do not download this plugin
-expecting a full experience out of the box. I am aware the codebase is shit you don't need to send me messages about it
+# Foreword - Postvideo
+At long last it's here [video](https://youtu.be/pIMKLOHAcbk), please read the entire readme before downloading or using the plugin
+
+# Contributors or would be contributors
+I'm forced to put this project on the back burner for a bit, there are a couple of key critical changes I will make, namely getting rid of the gRPC service entirely and the "PlayerJoin" jank I wrote after rewritting the parsing code for the 50th time.
+If you wish to contribute, please join the discord or dm directly before doing so, please do not submit fully AI written PR without even reviewing the code.
 # LoggingWay
 
 LoggingWay is a platform that aim to provide a different competitive experience when it comes to FFXIV raiding.
